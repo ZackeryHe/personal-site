@@ -1,0 +1,162 @@
+:root {
+  --paper: #efe7d6;
+  --ink: #1d2128;
+  --seal: #b8322a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* Light paper grain over the text too, so it reads as printed on the same sheet */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.38  0 0 0 0 0.28  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.3;
+}
+
+/* ---------- Stations (ink-bleed is driven from src/ui.js) ---------- */
+#stations { position: fixed; inset: 0; pointer-events: none; }
+
+.station {
+  position: absolute;
+  left: 8vw;
+  bottom: 14vh;
+  max-width: min(440px, 84vw);
+  visibility: hidden;
+}
+
+.station h1 { font-size: clamp(2.6rem, 6vw, 4.5rem); font-weight: 400; letter-spacing: 0.02em; }
+.station h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 400; margin-bottom: 0.4em; }
+.station p,
+.station .body { font-size: 1.2rem; line-height: 1.5; }
+.station .body p + p { margin-top: 0.6em; }
+.station a { color: inherit; text-decoration-color: var(--seal); text-underline-offset: 3px; pointer-events: auto; }
+.station .hint { font-style: italic; opacity: 0.6; margin-top: 0.6em; font-size: 1rem; }
+.zh { font-family: "Ma Shan Zheng", serif; color: var(--seal); margin-right: 0.2em; }
+
+.seal {
+  display: inline-grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  margin-bottom: 0.8rem;
+  background: var(--seal);
+  color: var(--paper);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px var(--seal), inset 0 0 0 5px var(--paper);
+  animation: stamp 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) 0.5s both;
+}
+
+@keyframes stamp {
+  from { transform: scale(1.9) rotate(-14deg); opacity: 0; }
+  to   { transform: scale(1) rotate(-3deg); opacity: 1; }
+}
+
+/* ---------- View names (知鱼, 竹径 ...) floating beside things in the world ---------- */
+#views { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+
+.view-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  visibility: hidden;
+  will-change: transform;
+}
+.view-label .zh {
+  writing-mode: vertical-rl;
+  font-family: "Ma Shan Zheng", serif;
+  font-size: 1.9rem;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  margin: 0;
+  opacity: 0.85;
+}
+.view-label .en {
+  margin-top: 0.35rem;
+  font-style: italic;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  opacity: 0.65;
+}
+/* far-off spectacles: larger, lighter, like an inscription in the sky */
+.view-label.far .zh { font-size: 2.4rem; opacity: 0.7; }
+.view-label.far .en { opacity: 0.55; }
+.view-label .en::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--seal);
+}
+
+/* ---------- Progress line + markers ---------- */
+#progress {
+  position: fixed;
+  right: 28px;
+  top: 20vh;
+  height: 60vh;
+  width: 1px;
+  background: rgba(29, 33, 40, 0.25);
+}
+#progress-dot {
+  position: absolute;
+  left: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--seal);
+  pointer-events: none;
+  z-index: 1;
+}
+#progress .marker {
+  position: absolute;
+  left: -6px;
+  width: 13px;
+  height: 13px;
+  margin-top: -6px;
+  padding: 0;
+  border: 1px solid rgba(29, 33, 40, 0.45);
+  border-radius: 50%;
+  background: var(--paper);
+  cursor: pointer;
+}
+#progress .marker::after {
+  content: attr(data-label);
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font: italic 1rem "Cormorant Garamond", Georgia, serif;
+  color: var(--ink);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+#progress .marker:hover::after,
+#progress .marker:focus-visible::after { opacity: 0.85; }
+
+@media (max-width: 600px) {
+  .station { left: 16px; right: 16px; bottom: 10vh; }
+  #progress { right: 14px; }
+}

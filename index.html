@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- the title + name are set from src/content.js; this is the fallback -->
+  <title>Zackery He</title>
+  <meta name="description" content="Zackery He — a walk through an ink-wash landscape." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Ma+Shan+Zheng&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- Poetic names of views, floating in the world (src/app/ui.js) -->
+  <div id="views" aria-hidden="true"></div>
+
+  <!-- Section text, built from src/content.js -->
+  <main id="stations"></main>
+  <noscript>
+    <section class="station" style="visibility: visible">
+      <h1>Zackery He</h1>
+      <p>This site is a walk through an ink-wash landscape, and needs JavaScript.</p>
+    </section>
+  </noscript>
+
+  <nav id="progress" aria-label="Sections"><div id="progress-dot"></div></nav>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
