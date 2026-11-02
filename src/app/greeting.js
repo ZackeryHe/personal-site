@@ -15,7 +15,7 @@ const SIZE = 1.5; // how big the brush is (it should loom)
 const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
 const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
 const SCROLL = { width: 9, depth: 2.9 }; // (a handscroll: long, and narrow)
-const SPLAT_SCALE = 3; // the splatter's spread, in screens across (so it goes on past them, over the scroll)
+const SPLAT_SCALE = 3; // how far the ink spreads, in screens across (so it goes on past them, over the scroll)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -82,7 +82,7 @@ export function createGreeting(renderer) {
   // fills your view exactly. Then it is just what the world draws on the screen, and the world
   // can take over without a seam.
   const worldTarget = new THREE.WebGLRenderTarget(1, 1);
-  // The splatter is much bigger than your screen (SPLAT_SCALE), so its ragged edge keeps on
+  // The spreading ink is much bigger than your screen (SPLAT_SCALE), so its ragged edge keeps on
   // going out over the scroll (only over its paper: ink doesn't hang in the air). Inside the
   // middle, screen-shaped part it is exactly the world; out beyond that, where the world draws
   // nothing, its colour is estimated: the world's own edge, softened, giving way to its paper.
@@ -98,6 +98,7 @@ export function createGreeting(renderer) {
         uScale: { value: SPLAT_SCALE },
         uBounds: { value: new THREE.Vector4() }, // the scroll's paper (world x0, z0, x1, z1)
         uPaperTone: { value: new THREE.Color("#efe7d6").multiplyScalar(0.93) }, // (the world's paper, its vignette and all)
+        uSeam: { value: 1 }, // 1 → 0 as you settle: the seam where the world meets its estimate is softened, then gone
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -113,6 +114,7 @@ export function createGreeting(renderer) {
         uniform float uSpread, uAspect, uScale;
         uniform vec4 uBounds;
         uniform vec3 uPaperTone;
+        uniform float uSeam;
         varying vec2 vUv;
         varying vec2 vWorld;
         float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -126,37 +128,38 @@ export function createGreeting(renderer) {
           if (vWorld.x < uBounds.x || vWorld.x > uBounds.z || vWorld.y < uBounds.y || vWorld.y > uBounds.w) discard;
           vec2 q = (vUv - 0.5) * uScale + 0.5;             // where this is in the world's frame (0 → 1 on screen)
           vec2 p = (q - 0.5) * vec2(uAspect, 1.0);          // ...in screen heights, from the drop
-          // the splatter's edge: ragged, with lobes and fine fraying
+          // the spreading edge: ragged, with lobes and fine fraying
           float d = length(p) + (n(p * 3.0) - 0.5) * 0.35 + (n(p * 9.0) - 0.5) * 0.12 + (n(p * 30.0) - 0.5) * 0.03;
           float inside = uSpread - d; // > 0: ink has reached here
           float a = smoothstep(-0.01, 0.02, inside);
-          // spattered droplets flung just beyond the edge
-          float flung = step(0.9, n(p * 26.0)) * smoothstep(0.3, 0.02, -inside) * step(inside, 0.0);
-          // the world, where there is one; beyond it, its own edge softened, giving way to paper
-          vec2 qc = clamp(q, 0.0, 1.0);
+          // the world, where there is one; beyond it, an estimate of it: a wash bled out of it,
+          // blurred wide and wavering like water, mottled, giving way unevenly to its paper
           vec3 world = texture2D(tWorld, q).rgb;
           float beyond = length(max(abs(q - 0.5) - 0.5, 0.0)); // how far outside the screen's frame
+          float fromEdge = min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y)); // how far inside it
+          float seam = beyond > 0.0 ? 1.0 : (1.0 - smoothstep(0.0, 0.16, fromEdge)) * uSeam;
           vec3 c = world;
-          if (beyond > 0.0) {
-            // the world's edge nearest here, blurred well (so it doesn't smear into streaks), and
-            // giving way to the world's paper a little way out
-            vec3 blurred = vec3(0.0);
+          if (seam > 0.0) {
+            vec2 warp = (vec2(n(p * 1.3 + 3.1), n(p * 1.3 + 8.3)) - 0.5) * 0.36; // (wavering, like water)
+            vec2 at = clamp(q, 0.26, 0.74) + warp; // (wavering after the clamp: no streaks along the edge)
+            vec3 wash = vec3(0.0);
             for (int i = -2; i <= 2; i++) {
               for (int j = -2; j <= 2; j++) {
-                blurred += texture2D(tWorld, clamp(q, 0.12, 0.88) + vec2(float(i), float(j)) * 0.05).rgb; // (from a little way in: a true 2D blur)
+                wash += texture2D(tWorld, at + vec2(float(i), float(j)) * 0.09).rgb;
               }
             }
-            blurred /= 25.0;
-            c = blurred;
-            c = mix(c, uPaperTone, smoothstep(0.03, 0.18, beyond));
+            wash /= 25.0;
+            wash *= 1.0 - (n(p * 5.0 + 1.3) - 0.5) * 0.05; // (mottled, as a wash dries)
+            float toPaper = smoothstep(0.0, 0.26, beyond + (n(p * 3.5 + 4.7) - 0.5) * 0.12);
+            wash = mix(wash, uPaperTone, toPaper);
+            c = mix(world, wash, seam);
           }
           // the dark ink edge: pigment pooled where the wash stops, darkening a little inside it
           vec3 ink = vec3(0.04, 0.045, 0.055);
           float rim = exp(-pow(inside / 0.035, 2.0));
           float pool = smoothstep(0.22, 0.0, inside) * step(0.0, inside);
           c = mix(c, ink, clamp(rim * 0.9 + pool * 0.22, 0.0, 0.92));
-          c = mix(c, ink, flung * 0.9);
-          gl_FragColor = vec4(c, max(a, flung));
+          gl_FragColor = vec4(c, a);
           #include <colorspace_fragment>
         }
       `,
@@ -278,6 +281,7 @@ export function createGreeting(renderer) {
 
     bubbles.update(dt, camera);
     bubbles.fade(1 - settle); // (gone by the time you look down on the painting)
+    painting.material.uniforms.uSeam.value = 1 - Math.pow(settle, 4); // (soft till the very end: the hand-off frame is exactly the world)
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
   }
@@ -511,7 +515,7 @@ function makeScroll() {
   };
 }
 
-/** A blot of ink soaking into paper: a ragged, feathered round, and a few spattered drops. */
+/** A blot of ink soaking into paper: a ragged, feathered round (it spreads; it doesn't splatter). */
 function blotTexture() {
   const S = 512;
   const c = document.createElement("canvas");
@@ -524,14 +528,6 @@ function blotTexture() {
     const d = Math.random() * S * 0.12;
     g.beginPath();
     g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, S * (0.12 + Math.random() * 0.12), 0, Math.PI * 2);
-    g.fill();
-  }
-  g.filter = "blur(1px)";
-  for (let i = 0; i < 26; i++) { // spatter
-    const a = Math.random() * Math.PI * 2;
-    const d = S * (0.3 + Math.random() * 0.17);
-    g.beginPath();
-    g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, 2 + Math.random() * 7, 0, Math.PI * 2);
     g.fill();
   }
   const t = new THREE.CanvasTexture(c);
