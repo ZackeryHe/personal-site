@@ -14,6 +14,7 @@ const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
 const DIVE_TIME = 1.1; // ...then down into the scroll after it, until its paper is all you see
 const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
 const SCROLL = { width: 9, depth: 2.9 }; // (a handscroll: long, and narrow)
+const DIVE_TO = 1.5;   // how high over the paper you come down to (it fills your view, the blot small in it)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -82,6 +83,17 @@ export function createGreeting(renderer) {
   const look = LOOK.clone();
   const dropPos = new THREE.Vector3();
 
+  /** Where the blot is on screen just now: { x, y, r } in CSS px. */
+  function blotOnScreen() {
+    const { center, radius } = scroll.blotWorld();
+    camera.updateMatrixWorld();
+    const c = center.clone().project(camera);
+    const edge = center.clone().add(new THREE.Vector3(radius, 0, 0)).project(camera);
+    const toPx = (v) => ({ x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight });
+    const a = toPx(c), b = toPx(edge);
+    return { x: a.x, y: a.y, r: Math.hypot(b.x - a.x, b.y - a.y) };
+  }
+
   function resize() {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
@@ -120,12 +132,14 @@ export function createGreeting(renderer) {
       dropPos.copy(falling.from);
       dropPos.y += (land - falling.from.y) * k * k;
       brush.position.y = TIP.y + Math.sin(Math.min(t * 6, Math.PI)) * 0.08 * Math.exp(-t * 2); // (the brush springs up)
-      // (you: from where you stood, down to just over the paper, looking down on the splash;
-      // standing a little back from it, so you never look quite straight down)
+      // (you: from where you stood, down to over the paper, looking down on the splash, until
+      // the paper fills your view; standing a little back from it, so you never look quite
+      // straight down)
       const dive = Math.min(Math.max((t - FALL_TIME * 0.35) / (FALL_TIME * 0.65 + DIVE_TIME), 0), 1);
       const e = dive * dive * (3 - 2 * dive);
-      const h = THREE.MathUtils.lerp(0, PAPER_Y + 0.12, e); // (your height)
-      camera.position.set(dropPos.x * e, h, THREE.MathUtils.lerp(0, falling.from.z + 0.06, e));
+      falling.e = e;
+      const h = THREE.MathUtils.lerp(0, PAPER_Y + DIVE_TO, e); // (your height)
+      camera.position.set(dropPos.x * e, h, THREE.MathUtils.lerp(0, falling.from.z + 0.25, e));
       if (k < 1) {
         const stretch = 1 + 0.35 * Math.min(1, k * 2);
         drop.scale.set(r / Math.sqrt(stretch), r * stretch, r / Math.sqrt(stretch));
@@ -134,9 +148,10 @@ export function createGreeting(renderer) {
         drop.visible = false;
         scroll.splash(dropPos.x - scroll.group.position.x, dropPos.z - scroll.group.position.z, t - FALL_TIME);
       }
-      // nearly there: the paper fills your view (the page layer fades to the same paper)
+      // nearly there: the paper fills your view (the page layer fades to the same paper, with
+      // the blot on it just where it is on screen: see blotOnScreen, below)
       if (t > FALL_TIME + DIVE_TIME - 0.4 && falling.onCover) {
-        falling.onCover();
+        falling.onCover(blotOnScreen());
         falling.onCover = null;
       }
       if (t > FALL_TIME + DIVE_TIME && falling.resolve) {
@@ -151,6 +166,13 @@ export function createGreeting(renderer) {
     if (falling) look.copy(dropPos).setY(Math.min(dropPos.y, camera.position.y - 0.05)); // (your eyes stay on it)
     else look.lerp(want, 1 - Math.exp(-dt * 2));
     camera.lookAt(look);
+    if (falling) {
+      // ...and as you come down over the scroll, you frame it so the blot sits just where, on
+      // screen, the world's own first ink will spread from (falling.aim), so the one becomes the other
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      camera.rotateX(Math.atan(-falling.aim.y * tanHalf) * falling.e);
+      camera.rotateY(Math.atan(falling.aim.x * tanHalf * camera.aspect) * falling.e);
+    }
 
     bubbles.update(dt, camera);
     renderer.setRenderTarget(null);
@@ -175,16 +197,18 @@ export function createGreeting(renderer) {
       progress = Math.max(progress, Math.min(1, k));
     },
     /**
-     * Let the drop go. onCover(): called as the scroll's paper is about to fill your view (cover
-     * it with the same paper, then). Resolves once you're down in the paper.
+     * Let the drop go. aim: where on screen (-1 → 1, as NDC) the world's first ink will spread
+     * from: the blot is framed there by the time the paper fills the view. onCover({ x, y, r }):
+     * called then, with where the blot is on screen (px; r: its radius), to cover it with the
+     * same paper and blot. Resolves once you're down over the paper.
      */
-    fall(onCover = () => {}) {
+    fall(onCover = () => {}, aim = { x: 0, y: 0 }) {
       if (reduced) {
-        onCover();
+        onCover(null);
         return Promise.resolve();
       }
       return new Promise((resolve) => {
-        falling = { t: 0, from: dropPos.clone(), onCover, resolve };
+        falling = { t: 0, e: 0, from: dropPos.clone(), aim, onCover, resolve };
       });
     },
     stop() {
@@ -374,7 +398,12 @@ function makeScroll() {
       blot.visible = true;
       blot.position.x = x;
       blot.position.z = z;
-      blot.scale.setScalar(0.12 + 0.75 * (1 - Math.exp(-age * 3.5))); // (fast, then slowly creeping out)
+      blot.scale.setScalar(0.1 + 0.3 * (1 - Math.exp(-age * 3.5))); // (fast, then slowly creeping out)
+    },
+    /** The blot's middle (world space) and the radius of its body of ink (m). */
+    blotWorld() {
+      group.updateMatrixWorld();
+      return { center: blot.getWorldPosition(new THREE.Vector3()), radius: blot.scale.x * 0.27 };
     },
   };
 }

@@ -134,12 +134,16 @@ async function boot() {
   greeting?.progress(1);
   if (skipGreeting) loader.dismiss();
   else {
-    // ...until you begin: the drop falls into the scroll and you follow it down into its paper;
-    // the world starts beneath that same paper, from its own blank page, its first drop falling
-    // as the paper clears
-    await loader.ready({ fall: (onCover) => greeting.fall(onCover) });
+    // ...until you begin: the drop falls into the scroll and you follow it down over its paper,
+    // framing its blot just where the world's first ink will spread from (drops.js: 5 m ahead
+    // of you). Then the world starts beneath the paper at the moment that ink lands (its own
+    // falling drop skipped: the scroll's was it), and spreads out from under the blot as the
+    // paper clears
+    const spot = walker.point.clone().addScaledVector(walker.tangent, 5).project(camera);
+    await loader.ready({ fall: (onCover) => greeting.fall(onCover, { x: spot.x, y: spot.y }) });
     greeting.dispose();
     resize();
+    globals.uTime.value = CONFIG.intro.blankPaper; // (the landing)
     loader.open();
   }
   requestAnimationFrame(frame);

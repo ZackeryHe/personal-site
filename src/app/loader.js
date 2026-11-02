@@ -61,8 +61,9 @@ export function createLoader() {
 
     /**
      * Ready: wait for the visitor (or go at once, if they already clicked), then let the drop
-     * fall into the scroll (fall(onCover): calls onCover as the scroll's paper is about to fill
-     * the view). Resolves once the view is all paper.
+     * fall into the scroll (fall(onCover): calls onCover({ x, y, r }) as the scroll's paper is
+     * about to fill the view, with where its blot of ink is on screen). Resolves once the view
+     * is all paper, the blot still on it.
      */
     ready({ fall }) {
       if (!el) return Promise.resolve();
@@ -81,8 +82,14 @@ export function createLoader() {
           el.removeAttribute("role");
           el.classList.add("is-falling"); // (the words fade)
           let covered = null;
-          await fall(() => {
-            el.classList.add("is-covered"); // (the same paper as the scroll's comes up over it)
+          await fall((blot) => {
+            // the same paper as the scroll's comes up over it, with the same blot on it, just there
+            if (blot) {
+              inkCover.style.setProperty("--blot-x", `${blot.x}px`);
+              inkCover.style.setProperty("--blot-y", `${blot.y}px`);
+              inkCover.style.setProperty("--blot-r", `${blot.r}px`);
+            }
+            el.classList.add("is-covered");
             covered = coverUp();
           });
           await (covered ?? coverUp());
@@ -92,11 +99,13 @@ export function createLoader() {
       });
     },
 
-    /** The world (blank paper, its first drop landing) is drawing beneath the paper now: go. */
+    /** The world is drawing beneath the paper now, its ink spreading from the blot: clear away. */
     open() {
       if (!el) return;
+      const r = parseFloat(inkCover.style.getPropertyValue("--blot-r")) || 0;
+      inkCover.style.setProperty("--blot-r", `${Math.max(r * 6, 160)}px`); // (spreading out as it goes)
       el.classList.add("is-open");
-      setTimeout(done, 900);
+      setTimeout(done, 1500);
     },
 
     /** Skip the greeting (dev: ?go, ?instant). */
