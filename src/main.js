@@ -13,6 +13,7 @@ import { createBrush } from "./app/brush.js";
 import { createPicker } from "./app/picker.js";
 import { createKeepsake } from "./app/keepsake.js";
 import { createLoader } from "./app/loader.js";
+import { createGreeting } from "./app/greeting.js";
 
 // Dev URL options:
 //   ?t=0.5      start halfway along the walk (0 = start, 1 = end)
@@ -27,8 +28,7 @@ const warp = parseFloat(params.get("warp")) || 1;
 const skipGreeting = params.has("go") || params.has("instant") || params.has("inked");
 
 document.title = SITE.name;
-const loader = createLoader(); // the greeting while the world is built (index.html)
-loader.progress(0.32, 0.8);    // (the code has arrived)
+const loader = createLoader(); // the greeting's page layer: your name, the way in (index.html)
 
 // ---------- Rendering ----------
 const canvas = document.getElementById("scene");
@@ -42,15 +42,20 @@ const field = new InkField(renderer); // how far the ink has spread, everywhere
 globals.tField.value = field.texture;
 globals.uFieldRect.value.copy(field.rect);
 const post = new WatercolorPass(renderer); // repaints each frame as watercolour
+const greeting = skipGreeting ? null : createGreeting(renderer); // the 3D greeting, while the world is built
 
 boot();
 
 async function boot() {
-  loader.progress(0.78, 3.5); // (creeping on, by itself, while the world is built)
-  await loader.painted(); // let the greeting paint first: building the world holds up the page
+  if (greeting) {
+    await greeting.start(); // (it draws itself every frame from here, until the world takes over)
+    loader.live();
+  }
+  await loader.painted();
 
   // ---------- The world, you, the ink, the words ----------
-  const world = buildWorld(scene);
+  // (built a little at a time, so the greeting keeps moving: the drop swells as it goes)
+  const world = await buildWorld(scene, { onProgress: (k) => greeting?.progress(k * 0.85) });
   const walker = createWalker({
     camera, world,
     startT: parseFloat(params.get("t")) || 0,
@@ -116,24 +121,27 @@ async function boot() {
     requestAnimationFrame(frame);
   }
 
-  // warm up behind the greeting: compile every shader, and paint a first (blank) frame
-  loader.progress(0.93, 1.2);
+  // warm up behind the greeting: compile every shader (in the background), and paint a first
+  // (blank) frame offscreen, so everything is uploaded before the world is ever shown
   walker.update(0);
   globals.uCam.value.copy(camera.position);
   await renderer.compileAsync?.(scene, camera);
-  post.render(scene, camera);
-  loader.progress(1, 0.4);
+  greeting?.progress(0.92);
+  await loader.painted();
+  const warmUp = new THREE.WebGLRenderTarget(1, 1);
+  post.render(scene, camera, warmUp);
+  warmUp.dispose();
+  greeting?.progress(1);
   if (skipGreeting) loader.dismiss();
   else {
-    // ...until you begin: the greeting's drop falls to just where the world's first drop lands
-    const spot = new THREE.Vector3();
-    await loader.ready({
-      landAt: () => {
-        spot.copy(walker.point).addScaledVector(walker.tangent, 5).project(camera);
-        return { x: (spot.x * 0.5 + 0.5) * innerWidth, y: (-spot.y * 0.5 + 0.5) * innerHeight };
-      },
-    });
-    globals.uTime.value = CONFIG.intro.blankPaper - 0.001; // ...and it lands there at once
+    // ...until you begin: the drop falls toward you and fills your view with ink; the world
+    // starts beneath it, its first drop landing at once, and opens out of the ink from there
+    await loader.ready({ fall: () => greeting.fall() });
+    greeting.dispose();
+    globals.uTime.value = CONFIG.intro.blankPaper - 0.001;
+    resize();
+    const spot = walker.point.clone().addScaledVector(walker.tangent, 5).project(camera);
+    loader.open({ x: (spot.x * 0.5 + 0.5) * innerWidth, y: (-spot.y * 0.5 + 0.5) * innerHeight });
   }
   requestAnimationFrame(frame);
 }
@@ -142,7 +150,7 @@ async function boot() {
 function createFps() {
   const el = document.createElement("div");
   el.style.cssText = "position:fixed;top:10px;right:12px;z-index:60;pointer-events:none;"
-    + "font:12px/1 ui-monospace,Menlo,monospace;color:#161a21;opacity:0.6";
+    + "font:12px/1 ui-monospace,Menlo,monospace;color:#7d838b"; // (reads on the paper and the greeting's grey)
   document.body.append(el);
   let frames = 0, since = performance.now();
   return {

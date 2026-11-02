@@ -195,7 +195,7 @@ function flyingCrane(mats) {
   return { group: g, wings };
 }
 
-export function build({ scene, P, places }) {
+export async function build({ scene, P, places, breathe }) {
   const rand = rng(97); // the layout
   const veg = rng(99);  // trees and bushes (their own stream, so they never shift the layout)
   const n = noise3(rng(98));
@@ -236,6 +236,7 @@ export function build({ scene, P, places }) {
   let templeSpot = null;
   for (const side of [-1, 1]) {
     for (let k = 0; k < 11; k++) {
+      await breathe(); // (the canyon is a lot to build: let the page breathe as it goes)
       const ahead = 34 + k * 42 + rand.range(-10, 10);
       const offset = side * (40 + ahead * 0.34 + rand.range(0, 18)); // the canyon widens away from you
       const r = 14 + k * 2.5 + rand.range(0, 10);
@@ -284,7 +285,8 @@ export function build({ scene, P, places }) {
   const ARCH = [6, 7]; // the arch's two towers in TOWERS
   const towerAxis = [];
   const towerRadius = [];
-  TOWERS.forEach(([side, ahead, r, top, taper], i) => {
+  for (const [i, [side, ahead, r, top, taper]] of TOWERS.entries()) {
+    await breathe();
     const p = at(side, ahead);
     const set = ahead < NEAR ? near : far;
     const g = towerAt({
@@ -296,7 +298,7 @@ export function build({ scene, P, places }) {
     const treeSize = Math.min(11, 4 + ahead * 0.015);
     clothe(set, g, { trees: someTrees(0.55), r: r * taper, size: treeSize });
     // most have lesser columns fused to them, each its own height: stepped, irregular skylines
-    if (ARCH.includes(i)) return; // (but keep the arch's two towers clean)
+    if (ARCH.includes(i)) continue; // (but keep the arch's two towers clean)
     const companions = rand() < 0.75 ? 1 + Math.floor(rand() * 2) : 0;
     for (let c = 0; c < companions; c++) {
       const a = rand() * Math.PI * 2;
@@ -308,7 +310,7 @@ export function build({ scene, P, places }) {
       set.towers.push(col);
       clothe(set, col, { trees: someTrees(0.3), r: cr * 0.7, size: treeSize * 0.85 });
     }
-  });
+  }
 
   // ---------- a cliff left of the middle, with a waterfall leaping from it into the cloud ----------
   const FALL = { side: -30, ahead: 150, r: 13, top: lift + 16 };

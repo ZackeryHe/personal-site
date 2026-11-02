@@ -228,10 +228,11 @@ export function mountainBushes(geos, { seed, distTo, skip = null, density = 0.05
 // Massifs all around (massifGeometry), merged into one mesh: low and broad, each its own
 // arrangement of summits, ridges, ledges and boulders. They follow the "far" ink channel, so the
 // opening bloom sweeps across them from where you stand.
-export function build({ scene, P, rng }) {
+export async function build({ scene, P, rng, breathe }) {
   const rand = rng(23);
   const geos = [];
   for (let i = 0; i < 46; i++) {
+    await breathe(); // (each massif is a good few ms: let the page breathe between them)
     const x = rand.range(-175, 175);
     const z = rand.range(-155, 45);
     const R = rand.range(26, 46);

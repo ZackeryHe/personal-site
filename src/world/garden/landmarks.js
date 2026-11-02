@@ -111,7 +111,7 @@ function carvedRock(scene, rand, { pos, faces, scale, text, textOpts, plate, tur
 
 // By the lotus pond, small carved rocks for GitHub, LinkedIn and Email (click them); and the
 // scholar's rocks around the garden.
-export function build({ scene, P, places, rng }) {
+export async function build({ scene, P, places, rng, breathe }) {
   const rand = rng(81);
   // (the boulder with your name that stood at the entrance drew these from the stream: skipped,
   // so the rocks after it keep their shapes)
@@ -120,6 +120,7 @@ export function build({ scene, P, places, rng }) {
   // Contacts: smaller rocks on the pond's near shore, carved with their names. Clicking one opens it.
   places.clickables = [];
   for (const l of places.links) {
+    await breathe(); // (each carved rock is a few ms)
     const point = SITE.points.find((p) => p.id === l.id);
     if (!point) continue;
     const { group, lettering } = carvedRock(scene, rand, {
@@ -143,6 +144,7 @@ export function build({ scene, P, places, rng }) {
     side: THREE.DoubleSide,
   });
   for (const { pos: p, h } of places.taihu) {
+    await breathe();
     const g = lumpyRock(rand, 5, 0.42);
     const n = g.userData.noise;
     const pos = g.attributes.position;

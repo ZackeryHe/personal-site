@@ -41,20 +41,34 @@ const MODULES = [
   sky, petals,
 ];
 
-export function buildWorld(scene) {
+/**
+ * Build the world, a little at a time: it lets a frame through whenever it has worked for ~10 ms
+ * (between modules, and inside the big ones: ctx.breathe()), so the greeting keeps moving and the
+ * page keeps answering while it's built. onProgress(k): 0 → 1 as the modules are done.
+ */
+export async function buildWorld(scene, { onProgress = () => {} } = {}) {
+  let since = performance.now();
+  const breathe = async () => {
+    if (performance.now() - since < 10) return;
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    since = performance.now();
+  };
+
   const P = makePath();
   // the shaders know the lie of the land too (ink climbs things from the ground they stand on)
   globals.uLand.value.set(P.brink.x, P.brink.z, P.endDir.x, P.endDir.z);
   globals.uLandHeight.value = LAND.rim;
   const places = planPlaces(P); // first, so scattered trees / grass keep out of reserved spots
-  const ctx = { scene, P, places, rng };
+  const ctx = { scene, P, places, rng, breathe };
 
   const updaters = [];
   const built = []; // what each module returned (handy in the console with ?debug)
-  for (const m of MODULES) {
-    const b = m.build(ctx);
+  for (const [i, m] of MODULES.entries()) {
+    await breathe();
+    const b = await m.build(ctx);
     built.push(b);
     if (b?.update) updaters.push(b.update);
+    onProgress((i + 1) / MODULES.length);
   }
 
   // markers for your points, floating beside the places that stand for them

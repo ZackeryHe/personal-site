@@ -1,26 +1,22 @@
 import { SITE } from "../content.js";
 
-// The greeting: while the world is built and its shaders compiled, ink washes drift across the
-// paper, a brush hangs on its cord with a drop of ink gathering at its tip, and your name waits
-// where the title card will be, a stroke of ink drawing itself out beneath it as things load
-// (all in index.html + style.css, so it shows before any of this has loaded, and its animation
-// runs on the compositor while the page is busy).
-// Click anywhere (even before it's ready: it goes as soon as it is), or scroll once it's ready:
-// the drop falls to exactly where the world's first drop lands, and the world blooms from there
-// as the greeting clears. (While it's up, scrolling doesn't walk you on unseen.)
+// The greeting's page layer (the 3D of it is app/greeting.js): your name in white and a line
+// of status over the dim grey, until the 3D greeting is drawn behind them. Click anywhere (even
+// before it's ready: it goes as soon as it is), or scroll once it's ready: the drop falls toward
+// you and fills your view with ink, and the world opens out of the ink from where its first drop
+// lands. (While it's up, scrolling doesn't walk you on unseen.)
 
 const WALK_KEYS = ["ArrowUp", "ArrowDown", "w", "W", "s", "S", "PageDown", "PageUp", " "];
 
 export function createLoader() {
   const el = document.getElementById("loader");
   const status = el?.querySelector(".loader-status");
-  const drop = el?.querySelector(".loader-drop-body");
-  const bar = el?.querySelector(".loader-bar");
-  const stroke = bar?.querySelector("i");
+  const inkCover = el?.querySelector(".loader-ink");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const touch = matchMedia("(pointer: coarse)").matches;
   let wantsIn = false; // clicked while it was still getting ready
   let ready = null;    // set once ready: go
+  document.body.classList.add("is-greeting"); // (the world's own words and marks wait: style.css)
 
   if (el) {
     // the name and seal come from content.js (index.html has them too, for the first moment)
@@ -52,63 +48,24 @@ export function createLoader() {
   const unswallow = () => {
     for (const k of kinds) removeEventListener(k, swallow, { capture: true });
   };
-
-  /** The falling drop: a copy of the one at the tip, dropped to (x, y) on screen. */
-  function fall(to) {
-    const r = drop.getBoundingClientRect();
-    const copy = document.createElement("div");
-    copy.className = "loader-falling";
-    copy.style.width = `${r.width}px`;
-    copy.style.height = `${r.height}px`;
-    copy.style.left = `${r.left}px`;
-    copy.style.top = `${r.top}px`;
-    copy.appendChild(drop.querySelector("svg").cloneNode(true));
-    el.appendChild(copy);
-    el.classList.add("is-falling");
-    const dx = to.x - (r.left + r.width / 2);
-    const dy = to.y - (r.top + r.height);
-    const ms = Math.min(720, 260 + Math.sqrt(Math.max(dy, 0)) * 16); // further to fall, a little longer
-    const falling = copy.animate([
-      { transform: "translate(0, 0) scale(1, 1)" },
-      { transform: `translate(${dx * 0.3}px, ${dy * 0.18}px) scale(0.92, 1.22)`, offset: 0.4 },
-      { transform: `translate(${dx}px, ${dy}px) scale(0.8, 1.4)` },
-    ], { duration: ms, easing: "cubic-bezier(0.45, 0, 0.9, 0.55)", fill: "forwards" });
-    return falling.finished.then(() => {
-      copy.remove();
-      // the splash: a ring spreading out where it lands (the world's own ripple carries it on)
-      const ring = document.createElement("div");
-      ring.className = "loader-splash";
-      ring.style.left = `${to.x}px`;
-      ring.style.top = `${to.y}px`;
-      el.appendChild(ring);
-      ring.animate([
-        { transform: "scale(0.1)", opacity: 0.85 },
-        { transform: "scale(1.6)", opacity: 0 },
-      ], { duration: 900, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)", fill: "forwards" });
-    });
-  }
+  const done = () => {
+    el?.remove();
+    unswallow();
+    document.body.classList.remove("is-greeting");
+  };
 
   return {
-    /** Resolves once the greeting has had a chance to paint. */
+    /** The 3D greeting is drawing now: let it show through. */
+    live: () => el?.classList.add("is-live"),
+
+    /** Resolves once the page has had a chance to paint. */
     painted: () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30))),
 
     /**
-     * The ink loading bar: draw it out to `k` (0–1), taking `seconds` (it carries on by itself, on
-     * the compositor, while the page is busy building the world).
+     * Ready: wait for the visitor (or go at once, if they already clicked), then let the drop
+     * fall (fall(): resolves as it fills the view). Resolves once the view is all ink.
      */
-    progress(k, seconds = 1) {
-      if (!stroke) return;
-      el.classList.add("is-loading");
-      stroke.style.setProperty("--bar-time", `${seconds}s`);
-      stroke.style.transform = `scaleX(${Math.max(0.04, Math.min(1, k)).toFixed(3)})`;
-      bar.setAttribute("aria-valuenow", String(Math.round(k * 100)));
-    },
-
-    /**
-     * Ready: wait for the visitor (or go at once, if they already clicked). Resolves as the drop
-     * lands. landAt() → { x, y }: where on screen the world's first drop will land.
-     */
-    ready({ landAt }) {
+    ready({ fall }) {
       if (!el) return Promise.resolve();
       el.classList.add("is-ready");
       el.removeAttribute("aria-busy");
@@ -123,22 +80,34 @@ export function createLoader() {
           if (gone) return;
           gone = true;
           el.removeAttribute("role");
-          if (!reduced) await fall(landAt());
+          el.classList.add("is-falling"); // (the words fade; the ink cover comes up as the drop arrives)
+          await Promise.all([fall(), coverUp()]);
           resolve();
-          el.classList.add("is-gone"); // the greeting clears, the world blooming beneath it
-          setTimeout(() => {
-            el.remove();
-            unswallow();
-          }, 1200);
         };
         if (wantsIn) ready();
       });
     },
 
-    /** Skip the greeting (dev: ?go, ?instant). */
-    dismiss() {
-      el?.remove();
-      unswallow();
+    /** The world is drawing beneath the ink now: open the ink out from (x, y) on screen, and go. */
+    open({ x, y }) {
+      if (!el) return;
+      inkCover.style.setProperty("--at", `${x}px ${y}px`);
+      el.classList.add("is-open");
+      setTimeout(done, reduced ? 700 : 1500);
     },
+
+    /** Skip the greeting (dev: ?go, ?instant). */
+    dismiss: done,
   };
+
+  /** Resolves once the ink cover is fully up (its fade is timed to the drop's fall: style.css). */
+  function coverUp() {
+    return new Promise((resolve) => {
+      const t = setTimeout(resolve, reduced ? 450 : 1350); // (in case the transition never fires)
+      inkCover.addEventListener("transitionend", () => {
+        clearTimeout(t);
+        resolve();
+      }, { once: true });
+    });
+  }
 }
