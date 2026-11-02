@@ -21,6 +21,7 @@ import { createLoader } from "./app/loader.js";
 //   ?look=-0.6  start looking left (+ = right), until you move the mouse
 //   ?warp=4     run time 4× faster (testing slow things like blooms)
 //   ?go         skip the scroll you're greeted with (so do ?instant and ?inked)
+//   ?fps        show frames per second, top right (always on in dev)
 const params = new URLSearchParams(location.search);
 const warp = parseFloat(params.get("warp")) || 1;
 const skipGreeting = params.has("go") || params.has("instant") || params.has("inked");
@@ -73,6 +74,7 @@ async function boot() {
   const keepsake = createKeepsake({ renderer, scene, camera, walker }); // the views from the bench, to keep
   if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake, field }; // poke around in the console
   let walked = 0; // metres, so the hint waits until you've had a wander
+  const fps = import.meta.env.DEV || params.has("fps") ? createFps() : null;
 
   // ---------- Loop ----------
   function resize() {
@@ -110,6 +112,7 @@ async function boot() {
     hint.update(ready && walked > 6 && walker.still > 0.6 && colour.blooms === 0 && walker.seated < 0.1, dt);
     keepsake.update(dt / warp);
     post.render(scene, camera);
+    fps?.tick(timestamp);
     requestAnimationFrame(frame);
   }
 
@@ -133,4 +136,22 @@ async function boot() {
     globals.uTime.value = CONFIG.intro.blankPaper - 0.001; // ...and it lands there at once
   }
   requestAnimationFrame(frame);
+}
+
+/** A small frames-per-second readout, top right (averaged over half a second). */
+function createFps() {
+  const el = document.createElement("div");
+  el.style.cssText = "position:fixed;top:10px;right:12px;z-index:60;pointer-events:none;"
+    + "font:12px/1 ui-monospace,Menlo,monospace;color:#161a21;opacity:0.6";
+  document.body.append(el);
+  let frames = 0, since = performance.now();
+  return {
+    tick(now) {
+      frames++;
+      if (now - since < 500) return;
+      el.textContent = `${Math.round((frames * 1000) / (now - since))} fps`;
+      frames = 0;
+      since = now;
+    },
+  };
 }
