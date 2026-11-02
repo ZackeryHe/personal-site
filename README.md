@@ -29,15 +29,18 @@ Controls: scroll / swipe / ↑↓ to walk, move the mouse to look, click the gro
 click the dots on the right to jump to a section. Stand still and you can turn your head much
 further; crane to the side and colour blooms where you look (see "The colour stage" below).
 The page opens on a greeting while the world is built (ink washes drifting on the paper, a brush
-hanging on its cord with a drop of ink gathering at its tip, your name): click anywhere and the
-drop falls, and the world blooms from where it lands, your name carrying on into it.
+hanging on its cord with a drop of ink gathering at its tip, your name, and a stroke of ink drawing
+itself out beneath it as things load): click or scroll anywhere and the drop falls, and the world
+blooms from where it lands, your name carrying on into it.
 Walk all the way to the end, up the steep stone steps onto the rim (the land's shape: `LAND` in
 `world/path.js`), and you sit down on the bench and
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
 colour where you stopped to look. It's the same view whichever way you were looking
 (`places.painting` in `world/places.js`); move the mouse to look around (right round to the
-canyon at the edges of the screen). Any view from the bench is yours to keep: rest your eyes on
-one and it's framed (ink corner marks show it); hover "Copy this view" and you're turned back to
+canyon at the edges of the screen). Wherever you rest your eyes, the view settles into a
+painter's framing (a longer lens: `walk.frameRest`, `frameEase`). Any view from the bench is
+yours to keep: rest on one and it's framed (ink corner marks show it); hover "Copy this view"
+and you're turned back to
 it, and one click (or S) puts it on your clipboard, rendered afresh with a seal and a line of
 colophon (`app/keepsake.js`). Sitting there, the trees and bamboo down in the valley go soft
 (`ink/post.js`): a lot of fine detail otherwise.
@@ -84,7 +87,8 @@ src/
                      (groundAt, mirrored in ink/material.js), raycastGround (where a click or your
                      gaze meets it), the cliff, keepOnLand, reserve/blocked)
     landscape/       terrain (the ground, rising to the rim and ending at its cliff; stones, grass,
-                     the stream), mountains,
+                     the stream), mountains (massifs after the old painters: rounded summits,
+                     ridges, ledges, boulders on their crowns; the ink paints their 皴 strokes),
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)
     structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),

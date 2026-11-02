@@ -52,13 +52,16 @@ stopped to look.
    walls (粉墙) with dark tile coping, lattice windows (漏窗) and a moon gate (月洞门), bamboo
    peeking over. The waterfall is already visible at the end of it.
 4. **Projects**: stone lanterns, warmly lit, lining the path through the bamboo.
-5. **Resume**: at the bamboo's end, the pavilion, its hanging scrolls the pages of your resume,
-   its open front framing the waterfall.
-6. **The waterfall**: it pours down a ravine into a pool, mist billowing up where it lands;
-   cranes wade in the shallows, a fisherman drifts on the pool, deer graze by its stream, which
-   runs under a stone arch bridge, the pagoda on its knoll beyond. Then across the meadows to the
-   foot of a rock escarpment, and up a sky ladder (天梯) of stone steps cut straight up its face,
-   steeper and steeper, to the rim.
+5. **The waterfall**: you come out of the bamboo facing it. Its mountain is a broad massif of
+   rounded summits after the old painters (Dong Yuan, Huang Gongwang), long hemp-fibre strokes
+   (披麻皴) running down its slopes, small boulders on its crowns (矾头), and the falls pour from
+   a cleft between two shoulders into a pool, mist billowing up where they land; cranes wade in
+   the shallows, a fisherman drifts on the pool, deer graze by its stream, which runs under a
+   stone arch bridge.
+6. **Resume**: across the bridge, the pavilion on the pool's shore, the pagoda on its knoll
+   behind; its hanging scrolls are the pages of your resume, the falls beside it. Then across
+   the meadows to the foot of a rock escarpment, and up a sky ladder (天梯) of stone steps cut
+   straight up its face, steeper and steeper, to the rim.
 7. **The end: nothing built but a stone bench, on a narrow crest high on the rim, right at the
    edge.** The crest is narrow and the face below it steep, so that sitting there you look over
    its brow straight down into the valley and see none of the climb. The land stops

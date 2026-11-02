@@ -133,7 +133,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uTintWash, uTintInk;
   uniform float uTint;
   uniform vec3 uSun, uSunGlow;
-  uniform float uGlow, uSoftObj;
+  uniform float uGlow, uSoftObj, uCun;
   uniform float uAtmScale;
   ${landGLSL}
   #ifdef DECAL
@@ -154,7 +154,6 @@ const fragmentShader = /* glsl */ `
     float atm = smoothstep(uNear * atmK, uFar * atmK, dist);
     vec3 q = vWorld * uNoiseScale;
     float blot = fbm3(q + 3.1);
-    float fingers = fbm3lo(q * 4.7 + 7.7);
 
     // ---------- Has the ink reached this point yet? ----------
   #ifdef GLOBAL_REVEAL
@@ -168,8 +167,12 @@ const fragmentShader = /* glsl */ `
     float reach = dot(field, uChannel);
   #endif
     // Ink climbs upward from the ground; noise makes the front blotchy with capillary fingers
+    // (the fingers only matter near the front: computed only there)
     float margin = reach - uBias - max(vWorld.y - groundAt(vWorld.xz), 0.0) * uClimb
-                 + (blot - 0.5) * uNoiseAmp + (fingers - 0.5) * uNoiseAmp * 0.45;
+                 + (blot - 0.5) * uNoiseAmp;
+    float fingers = 0.5;
+    if (abs(margin) < uNoiseAmp * 0.25 + uEdge * 2.0 + 0.02) fingers = fbm3lo(q * 4.7 + 7.7);
+    margin += (fingers - 0.5) * uNoiseAmp * 0.45;
     float wet = smoothstep(-uEdge, uEdge, margin);
   #ifndef GROUND
     if (wet < 0.01) {
@@ -219,6 +222,34 @@ const fragmentShader = /* glsl */ `
     float air = mix(uMistFloor, 1.0, mist) * (1.0 - cloud);
 
     float ink = (tex * shade + sil * uSil) * wet + rim * uRim;
+
+    // 皴 texture strokes, painted on a mountain (vUv: x round it, y from its summit out to its
+    // foot): long hemp-fibre strokes (披麻皴) running down the slopes, wavering, breaking off here
+    // and there, heavier on the steep flanks and the side away from the light; and faint ledges
+    // (折带) across the steepest parts. Not at the very summit, nor down in the mist at the foot.
+    if (uCun > 0.0) {
+      float zone = smoothstep(0.08, 0.24, vUv.y) * (1.0 - smoothstep(0.8, 0.97, vUv.y));
+      float closeBy = 1.0 - smoothstep(150.0, 320.0, dist); // (far off, too fine to draw)
+      float reachK = zone * closeBy * uCun * wet;
+      if (reachK > 0.01) { // (only where they can show: it's a lot of noise to compute)
+        float ang = vUv.x * 6.2831853;
+        vec3 pc = vec3(cos(ang), vUv.y * 2.5, sin(ang));
+        float warp = fbm3lo(pc * 1.2 + 4.0) * 2.2;
+        // (few strokes near the summit, more and more of them further down, as the fibres splay;
+        // they waver only gently, so they run down the slopes rather than swirl)
+        float few = smoothstep(0.86, 0.985, abs(sin((vUv.x * 56.0 + warp * 1.1) * 3.14159)));
+        float many = smoothstep(0.87, 0.985, abs(sin((vUv.x * 150.0 + warp * 2.4) * 3.14159)));
+        float fibres = mix(few, many, smoothstep(0.35, 0.75, vUv.y));
+        float broken = smoothstep(0.35, 0.6, fbm3lo(vec3(cos(ang) * 7.0, vUv.y * 10.0, sin(ang) * 7.0) + 2.0));
+        float flank = 1.0 - smoothstep(0.5, 0.92, N.y);
+        float ledges = 0.0;
+        if (N.y < 0.65) { // (ledges only across the steep parts, and only here and there)
+          ledges = smoothstep(0.95, 0.997, abs(sin((vWorld.y + warp * 1.6) * 0.85))) * smoothstep(0.35, 0.8, 1.0 - N.y)
+                 * smoothstep(0.45, 0.7, noise3(vec3(vWorld.x * 0.08, vWorld.y * 0.3, vWorld.z * 0.08) + 6.0));
+        }
+        ink += (fibres * broken * mix(0.3, 1.0, flank) * mix(1.0, 0.6, lit) * 0.55 + ledges * 0.14) * reachK;
+      }
+    }
 
     // pine needles: fine radiating streaks
     if (uNeedles > 0.0) {
@@ -395,6 +426,7 @@ export function inkMaterial({
   wiggle = 0, holes = 0,      // swimming koi; scholar's-rock holes
   glow = 0,                   // how much the setting sun warms its paper when you look toward the sun
   soft = false,               // fine detail (trees, bamboo) that softens when you sit at the lookout (ink/post.js)
+  cun = 0,                    // texture strokes (皴) on a mountain built by massifGeometry (0 = none)
   washLit = null, washShade = null, // per-material colour wash (default ochre / indigo)
   map = null,                 // alpha texture for variant "decal"
   // colour stage: a TINTS name ("foliage", "mountain", ...), "none", or { wash, ink, amount }.
@@ -443,6 +475,7 @@ export function inkMaterial({
       uHoles: { value: holes },
       uGlow: { value: glow },
       uSoftObj: { value: soft ? 1 : 0 },
+      uCun: { value: cun },
       ...(washLit ? { uOchre: { value: washLit } } : {}),
       ...(washShade ? { uIndigo: { value: washShade } } : {}),
       ...(map ? { uMap: { value: map } } : {}),

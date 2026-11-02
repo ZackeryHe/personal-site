@@ -26,7 +26,8 @@ const warp = parseFloat(params.get("warp")) || 1;
 const skipGreeting = params.has("go") || params.has("instant") || params.has("inked");
 
 document.title = SITE.name;
-const loader = createLoader(); // the scroll that greets you while the world is built (index.html)
+const loader = createLoader(); // the greeting while the world is built (index.html)
+loader.progress(0.32, 0.8);    // (the code has arrived)
 
 // ---------- Rendering ----------
 const canvas = document.getElementById("scene");
@@ -44,6 +45,7 @@ const post = new WatercolorPass(renderer); // repaints each frame as watercolour
 boot();
 
 async function boot() {
+  loader.progress(0.78, 3.5); // (creeping on, by itself, while the world is built)
   await loader.painted(); // let the greeting paint first: building the world holds up the page
 
   // ---------- The world, you, the ink, the words ----------
@@ -111,11 +113,13 @@ async function boot() {
     requestAnimationFrame(frame);
   }
 
-  // warm up behind the scroll: compile every shader, and paint a first (blank) frame
+  // warm up behind the greeting: compile every shader, and paint a first (blank) frame
+  loader.progress(0.93, 1.2);
   walker.update(0);
   globals.uCam.value.copy(camera.position);
   await renderer.compileAsync?.(scene, camera);
   post.render(scene, camera);
+  loader.progress(1, 0.4);
   if (skipGreeting) loader.dismiss();
   else {
     // ...until you begin: the greeting's drop falls to just where the world's first drop lands

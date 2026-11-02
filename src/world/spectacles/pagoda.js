@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { peakGeometry, mountainMaterial } from "../landscape/mountains.js";
+import { massifGeometry, mountainMaterial } from "../landscape/mountains.js";
 import { roofGeometry } from "../structures/structures.js";
 import { farInk } from "./common.js";
 
@@ -8,11 +8,14 @@ import { farInk } from "./common.js";
 export function build({ scene, P: path, places, rng }) {
   const rand = rng(83);
   const P = places.pagoda;
-  // its knoll stays on land, short of the cliff edge
-  scene.add(new THREE.Mesh(path.keepOnLand(peakGeometry(rand, P.pos.x, P.pos.z, P.r, P.h, 0), 2), mountainMaterial()));
+  // its knoll: a small rounded massif (kept on land, short of the cliff edge)
+  const knoll = path.keepOnLand(massifGeometry(rand, P.pos.x, P.pos.z, P.r * 1.25, P.h, {
+    lobes: 2, round: 1.3, flat: 2.4, terraces: 0, crown: 0, ridges: 0.5,
+  }), 2);
+  scene.add(new THREE.Mesh(knoll, mountainMaterial({ cun: 1 })));
 
   const parts = [];
-  let y = P.h - 2 - 0.5; // just below the summit
+  let y = knoll.userData.heightAt(P.pos.x, P.pos.z) - 0.3; // on its summit
   for (let i = 0; i < (P.tiers ?? 7); i++) {
     const w = 2.3 - i * 0.22;
     parts.push(new THREE.CylinderGeometry(w * 0.8, w * 0.85, 1.25, 8).translate(0, y + 0.625, 0));

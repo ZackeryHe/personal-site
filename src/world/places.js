@@ -10,9 +10,10 @@ import { GARDEN_LEN } from "./path.js";
 // put however long the rest of the walk is.
 //
 // The walk: the entrance → koi pond (Contacts) → avenue of tablets (Experience) → bamboo with
-// lanterns (Projects) → out through the pavilion (Resume), facing the waterfall → the bridge →
-// east across the meadows and up the rising rim to the lookout: the canyon and the red sun
-// ahead, and behind you, when you sit and turn round, the whole walk laid out below.
+// lanterns (Projects) → out of the bamboo facing the waterfall → over the bridge and through the
+// pavilion on the waterfall pool's shore (Resume) → east across the meadows and up the rim to the
+// lookout: the canyon and the red sun ahead, and behind you, when you sit and turn round, the
+// whole walk laid out below.
 
 // Stops along the walk, in the garden's units (path.js turns them into t: STOPS).
 // Your points (text in src/content.js): their panel writes itself in at these stops.
@@ -22,11 +23,11 @@ export const STOP_AT = {
   contacts: 0.085,  // just before the carved rocks on the lotus pond's near shore (you turn toward them)
   experience: 0.27, // the avenue of stone tablets (碑林)
   projects: 0.47,   // lanterns in the bamboo
-  resume: 0.6,      // the pavilion at the bamboo's end, its hanging scrolls, the waterfall framed beyond
+  resume: 0.85,     // the pavilion on the waterfall pool's shore, its hanging scrolls (across the bridge)
   // scenery
   grove: 0.27,      // pines around the tablets
   river: 0.762,     // the bridge over the waterfall's stream
-  pavilion: 0.6,
+  pavilion: 0.85,
 };
 /** The stops as t along the walk (filled in by makePath, path.js). */
 export const STOPS = {};
@@ -78,7 +79,7 @@ export function planPlaces(P) {
       P.at(STOPS.experience + d / P.pathLen, side * (7.4 + (d % 4 === 0 ? 0.6 : 0))))),
     lanterns: [0.4, 0.44, 0.48, 0.52, 0.56].map((g, i) => ({ t: T(g), pos: P.at(T(g), i % 2 ? 1.8 : -1.8) })), // Projects
     meadow: { pos: P.at(T(0.66), 8), r: 4.5 },   // deer, wildflowers, butterflies, by the stream
-    plumPavilion: { pos: P.at(T(0.635), -6.2) }, // plum tree beside the pavilion
+    plumPavilion: { pos: P.at(T(0.635), -6.2) }, // plum tree where the bamboo opens onto the waterfall
     cranes: { pos: V() },                     // placed by garden/creatures.js
     boat: { pos: V() },                       // drifts; moved by garden/creatures.js
 
@@ -111,16 +112,17 @@ export function planPlaces(P) {
   };
   places.pool = { pos: places.river.at(-11, 6), r: 9 };
   // the waterfall's mountain stands right behind the pool. Its falls face halfway between where
-  // you first see them (coming out of the bamboo, through the pavilion) and the lookout at the
+  // you first see them (coming out of the bamboo) and the lookout at the
   // end, so they're seen well from both, and in the painting
   const view = P.at(T(0.62));
   const toView = view.clone().sub(places.pool.pos).setY(0).normalize();
   const toLookout = places.bench.pos.clone().sub(places.pool.pos).setY(0).normalize();
   const faces = toView.clone().add(toLookout).normalize();
+  const FALLS_R = 30;
   places.waterfall = {
-    // far enough back that only the pool's far edge laps its foot (no clipping)
-    pos: places.pool.pos.clone().addScaledVector(faces, -(17 + places.pool.r * 0.6)),
-    r: 17, h: 44, lip: 0.6, faces: places.pool.pos.clone().addScaledVector(faces, 30),
+    // a broad massif (mountains.js), far enough back that only the pool's far edge laps its foot
+    pos: places.pool.pos.clone().addScaledVector(faces, -(FALLS_R + places.pool.r * 0.45)),
+    r: FALLS_R, h: 34, lip: 0.55, faces: places.pool.pos.clone().addScaledVector(faces, 30),
   };
   places.pool.toPath = toView.clone(); // from the pool toward the walk: its near shallows
 
@@ -145,7 +147,7 @@ export function planPlaces(P) {
   };
   // (no pines framing it: below the bench the rim drops away in a steep rock face)
   places.painting.frame = [];
-  // scholar's rocks: around the pond, by the entrance, before the pavilion
+  // scholar's rocks: around the pond, by the entrance, where the bamboo ends
   const pond = places.pond;
   const toPath = P.at(T(0.13)).sub(pond.pos).normalize();
   const around = (a, r) => pond.pos.clone().addScaledVector(toPath.clone().applyAxisAngle(V(0, 1, 0), a), r);
@@ -200,7 +202,7 @@ export function planPlaces(P) {
   toFalls.normalize();
   for (let d = 10; d < len - places.waterfall.r; d += 8) r(from.clone().addScaledVector(toFalls, d), 10, { trees: false });
   // nothing standing straight behind the waterfall's mountain, as you see it from the lookout or
-  // from the pavilion: it stands alone against the pale far ranges
+  // from the bamboo's end: it stands alone against the pale far ranges
   for (const from of [places.bench.pos, view]) {
     const away = places.waterfall.pos.clone().sub(from).setY(0).normalize();
     for (let d = places.waterfall.r * 0.6; d < 240; d += 9) {

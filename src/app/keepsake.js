@@ -20,23 +20,19 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
   const touch = matchMedia("(pointer: coarse)").matches; // (no looking round on a touch screen)
   const el = document.createElement("div");
   el.className = "keepsake";
-  el.innerHTML = `
-    <p class="keepsake-line"><span class="zh">留念</span><span class="keepsake-text"></span></p>
-    <button class="keepsake-copy" type="button"><span class="keepsake-seal" aria-hidden="true"></span><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
+  el.innerHTML = `<button class="keepsake-copy" type="button"><span class="keepsake-seal" aria-hidden="true"></span><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
   document.body.appendChild(el);
-  const text = el.querySelector(".keepsake-text");
   const label = el.querySelector(".keepsake-label");
   const button = el.querySelector(".keepsake-copy");
   el.querySelector(".keepsake-seal").textContent = SITE.initials;
-  const say = (line, action) => {
-    text.textContent = line;
-    label.textContent = action;
+  button.title = "Rest your eyes on any view you like: it's yours to keep";
+  let saidAt = 0;
+  /** What the button says (after a while, it goes back to offering the view you're looking at). */
+  const say = (text, hold = 0) => {
+    label.textContent = text;
+    saidAt = hold ? performance.now() + hold * 1000 : 0;
   };
-  const invite = () => say(
-    touch ? "Your painting: the ink you left on the walk, the colour where you stopped to look."
-      : "Look around, and rest on any view you like: it's yours to keep.",
-    "Copy this view",
-  );
+  const invite = () => say(touch ? "Copy your painting" : "Copy this view");
   invite();
   const set = inkBleed(el);
 
@@ -125,13 +121,13 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
   async function keep() {
     if (busy) return;
     busy = true;
-    say("Painting it…", "One moment");
+    say("Painting it…");
     marksFor = 1.2;
     const blob = paint(); // (a promise: the clipboard waits for it, still inside your click)
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("no clipboard");
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      say("It's on your clipboard: paste it anywhere. Rest on another view to keep that too.", "Copy this view");
+      say("Copied: paste it anywhere", 3);
     } catch {
       // no image clipboard here (or it was refused): save it as a file instead
       const a = document.createElement("a");
@@ -139,7 +135,7 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
       a.download = `${SITE.name.toLowerCase().replace(/\s+/g, "-")}-painting.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      say("Saved as a picture in your downloads. Rest on another view to keep that too.", "Copy this view");
+      say("Saved to your downloads", 3);
     } finally {
       busy = false;
     }
@@ -172,11 +168,12 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
         if (!overPanel && !busy && walker.restingFor > 0.6 && Math.abs(g.x - framed.x) + Math.abs(g.y - framed.y) > 0.04) {
           framed = g;
           marksFor = 1.4;
-          invite();
+          if (!saidAt) invite();
         }
         // on the button, you're turned back to the framed view: what you see is what you keep
         walker.hold(overPanel || busy ? framed : null);
       }
+      if (saidAt && performance.now() > saidAt) invite(); // (back to offering the view)
       marksFor = Math.max(0, marksFor - dt);
       marks.classList.toggle("on", sitting && shown > 0.5 && (marksFor > 0 || overPanel));
 

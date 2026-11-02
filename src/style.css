@@ -222,7 +222,7 @@ html, body, #scene, a, button { cursor: none; }
 .keepsake {
   position: fixed;
   left: 50%;
-  bottom: 9vh;
+  bottom: 4.5vh;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -235,8 +235,6 @@ html, body, #scene, a, button { cursor: none; }
   z-index: 5;
   text-shadow: 0 0 2px var(--paper), 0 0 8px var(--paper), 0 0 16px var(--paper);
 }
-.keepsake-line { font-size: 1.2rem; line-height: 1.45; font-style: italic; }
-.keepsake-line .zh { font-style: normal; font-size: 1.5rem; margin-right: 0.45em; }
 .keepsake-copy {
   display: inline-flex;
   align-items: center;
@@ -433,6 +431,29 @@ html, body, #scene, a, button { cursor: none; }
   z-index: 2;
 }
 
+/* the ink loading bar: a stroke of black ink drawn out under the name as the world is built
+   (its length is set from loader.js; it creeps on by itself while the page is busy) */
+.loader-bar {
+  position: relative;
+  width: min(330px, 70vw);
+  height: 12px;
+  margin: 0.5rem 0 0.2rem;
+}
+.loader-bar i {
+  position: absolute;
+  inset: 0;
+  /* one stroke of black ink: pressed down at the left, drawn out, thinning to a dry tail */
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 330 12' preserveAspectRatio='none'><filter id='r' x='-2%' y='-30%' width='104%' height='160%'><feTurbulence type='fractalNoise' baseFrequency='0.08 0.6' numOctaves='2' seed='3'/><feDisplacementMap in='SourceGraphic' scale='2.2'/></filter><g filter='url(%23r)' fill='%23111419'><path d='M3 6.2C2.6 2.8 5.6 1 9.5 1.4C60 2.6 150 2.2 245 2.9C285 3.3 312 4.4 327 5.6C313 7.2 286 8.6 245 8.9C150 9.6 60 9.3 9.5 10.4C5.6 10.9 3.3 9.2 3 6.2Z'/><path d='M250 4.2C285 4.4 305 5 322 5.8' stroke='%23efe7d6' stroke-width='0.6' fill='none' opacity='0.7'/><path d='M240 7.6C280 7.4 300 6.8 318 6.2' stroke='%23efe7d6' stroke-width='0.5' fill='none' opacity='0.6'/></g></svg>") 0 0 / 100% 100% no-repeat;
+  transform-origin: 0 50%;
+  transform: scaleX(0.04);
+  animation: bar-start 2.4s cubic-bezier(0.2, 0.7, 0.3, 1) forwards; /* (before any script: the first stretch) */
+  transition: transform var(--bar-time, 1.2s) cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+#loader.is-loading .loader-bar i { animation: none; }
+#loader.is-ready .loader-bar i { transition-duration: 0.5s; }
+#loader.is-falling .loader-bar { opacity: 0; transition: opacity 0.4s; }
+@keyframes bar-start { to { transform: scaleX(0.18); } }
+
 /* your name: the title card's own styles (.station, .seal, .hint), always showing here */
 #loader .loader-title { visibility: visible; }
 .loader-status { transition: opacity 0.6s; }
@@ -478,6 +499,7 @@ html, body, #scene, a, button { cursor: none; }
   .loader-sun { right: 8vw; bottom: 20vh; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .loader-bar i { animation: none; transition: none; }
   .loader-wash, .loader-ranges, .loader-brush, .loader-drop-swell, .loader-drop-body,
   #loader.is-ready .loader-status { animation: none; }
 }

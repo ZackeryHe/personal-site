@@ -42,10 +42,16 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     walk((touchY - y) * W.touch);
     touchY = y;
   }, { passive: true });
+  const restAt = { x: startLook, y: 0 }; // where the pointer last came to rest
   addEventListener("pointermove", (e) => {
     mouse.x = (e.clientX / innerWidth) * 2 - 1;
     mouse.y = (e.clientY / innerHeight) * 2 - 1;
-    movedAt = performance.now();
+    // (a real move, not the hand's jitter)
+    if (Math.abs(mouse.x - restAt.x) + Math.abs(mouse.y - restAt.y) > 0.025) {
+      restAt.x = mouse.x;
+      restAt.y = mouse.y;
+      movedAt = performance.now();
+    }
   });
 
   // fine control near the centre of the screen; the big turn happens toward the edge
@@ -66,11 +72,6 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   const toCanyon = painting && endDir ? angleTo(painting.facing, endDir) : Math.PI;
   const turnLeft = toCanyon > 0 ? toCanyon : 2 * Math.PI + toCanyon;
   const turnRight = toCanyon < 0 ? -toCanyon : 2 * Math.PI - toCanyon;
-
-  /** 0–1: how squarely the mouse is where it was when you sat (looking at the painting). */
-  const squarely = () => (anchor
-    ? 1 - smoothstep(Math.abs(mouse.sx - anchor.x) + Math.abs(mouse.sy - anchor.y) * 0.5, 0.12, 0.35)
-    : 0);
 
   /**
    * How far to turn toward the nearest point you're approaching: grows as you get
@@ -218,11 +219,12 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       look.y += lookY;
       camera.lookAt(look);
       camera.rotateZ(-crane * W.craneRoll * (1 - sit)); // a slight head tilt
-      // turned to the painting, it's seen as a painter frames it: a longer lens, layers drawn
-      // closer together, the distance less faded. It settles in slowly as you sit and look, and
-      // eases off as you look away.
+      // seated, wherever you rest your eyes it's seen as a painter frames it: a longer lens, the
+      // layers drawn closer together, the distance less faded. It settles in slowly as you rest
+      // on a view, and eases off again as you look about.
       if (painting) {
-        framing += (sit * squarely() - framing) * Math.min(1, dt * W.frameEase);
+        const resting = sit > 0.9 && (performance.now() - movedAt) / 1000 > W.frameRest ? 1 : 0;
+        framing += (sit * resting - framing) * Math.min(1, dt * (resting ? W.frameEase : W.frameEase * 3));
         const k = framing * framing * (3 - 2 * framing);
         const fov = lerp(CONFIG.render.fov, painting.fov, k);
         if (Math.abs(camera.fov - fov) > 0.01) {

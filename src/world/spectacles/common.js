@@ -10,11 +10,6 @@ export function facing(place) {
   return { dir, side };
 }
 
-/** Radius of a shan shui peak (see peakGeometry) at height y, ignoring folds and jitter. */
-export function peakRadiusAt(place, y) {
-  return place.r * Math.pow(Math.max(0, 1 - (y + 2) / place.h), 0.55);
-}
-
 /** Ink for distant built things / trees: follows the far ink channel like the mountains. */
 export function farInk(opts = {}) {
   return inkMaterial({

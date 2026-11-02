@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { inkMaterial } from "../../ink/material.js";
-import { peakGeometry, mountainMaterial, mountainBushes } from "../landscape/mountains.js";
-import { facing, peakRadiusAt } from "./common.js";
+import { massifGeometry, mountainMaterial, mountainBushes } from "../landscape/mountains.js";
+import { facing } from "./common.js";
 import { createMist } from "../effects/mist.js";
 
 // 飞瀑 — the waterfall: it pours down a ravine in its mountain into a pool at your feet
@@ -13,21 +13,28 @@ export function build({ scene, P, places, rng }) {
   const pool = places.pool;
   const { dir, side } = facing(W);
 
-  // the mountain, with a ravine cut into the face toward the walk for the falls to pour down
-  const gully = { angle: Math.atan2(dir.x, dir.z), depth: 0.5, width: 0.24 };
-  // (its back reaches round toward the end of the walk: kept on land, short of the cliff edge)
-  const peak = P.keepOnLand(peakGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, 0, gully), 2);
-  scene.add(new THREE.Mesh(peak, mountainMaterial({ cloud: new THREE.Vector4(W.h * 0.75, 3, 0.7, 0.8) })));
+  // the mountain: a massif, its main summit behind, two shoulders either side of a ravine cut
+  // into the face toward the walk, the falls pouring out of the cleft between them
+  const ga = Math.atan2(dir.z, dir.x); // (massifGeometry's angles)
+  const peak = P.keepOnLand(massifGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, {
+    lobes: 3, round: 1.3, flat: 2.4, terraces: 0.15, ridges: 0.8, crown: 1,
+    mainAt: { angle: ga + Math.PI, dist: 0.14 }, // (set back, behind the ravine)
+    gully: { x: dir.x, z: dir.z, depth: 0.28, width: 0.3 },
+    shoulders: [ // (either side of the ravine, clear of it: it runs down between them)
+      { angle: ga + 0.98, dist: 0.44, r: 0.35, h: 0.58 },
+      { angle: ga - 1.02, dist: 0.46, r: 0.33, h: 0.5 },
+    ],
+  }), 2); // (its back reaches round toward the end of the walk: kept on land, short of the cliff edge)
+  scene.add(new THREE.Mesh(peak, mountainMaterial({ cloud: new THREE.Vector4(W.h * 0.72, 3, 0.7, 0.8), cun: 1 })));
   // scrub on its slopes, but none down the ravine the water falls through
-  const off = (p) => Math.abs(Math.atan2(Math.sin(Math.atan2(p.x - W.pos.x, p.z - W.pos.z) - gully.angle),
-    Math.cos(Math.atan2(p.x - W.pos.x, p.z - W.pos.z) - gully.angle)));
+  const off = (p) => Math.abs(Math.atan2(dir.x * (p.z - W.pos.z) - dir.z * (p.x - W.pos.x), dir.x * (p.x - W.pos.x) + dir.z * (p.z - W.pos.z)));
   scene.add(mountainBushes([peak], { seed: 86, density: 0.045, distTo: (p) => p.distanceTo(places.pool.pos), skip: (p) => off(p) < 0.4 }));
 
   // the falls: ribbons inside the ravine, widening as they fall: a broad one, and a thin strand
   // beside it that spills from lower down. The strand keeps a gap from the broad one all the
   // way down and hangs a little further back in the ravine, so the two never cross or overlap.
   const pointAt = (y) => {
-    const out = peakRadiusAt(W, y) * 0.85 + 0.3; // in front of the ravine floor, between its walls
+    const out = peak.userData.radiusAt(dir.x, dir.z, y) + 0.35; // just in front of the ravine floor
     return new THREE.Vector3(W.pos.x + dir.x * out, y, W.pos.z + dir.z * out);
   };
   /** top: height of its lip; centre(v), width(v): across the falls (m), v from the lip (0) to the foot (1) */

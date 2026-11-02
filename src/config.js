@@ -30,7 +30,8 @@ export const CONFIG = {
     sitHeight: 1.15,  // eye height on the bench at the end
     sitLean: 0.5,     // ...leaning this far toward what you look at (m)
     sitEase: 1.2,     // how slowly you sit down (lower = slower)
-    frameEase: 0.6,   // how slowly the view settles into the painting's framing once you're sitting
+    frameEase: 0.6,   // seated, how slowly the view settles into a painter's framing (a longer lens)...
+    frameRest: 0.5,   // ...once you've rested your eyes on it this many seconds
     // (sitting, you turn round to the painting's view: see places.painting in src/world/places.js)
   },
 
