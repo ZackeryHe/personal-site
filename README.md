@@ -28,10 +28,11 @@ e.g. the koi pond: `?t=0.09&instant&look=-0.75`; the painting at the end: `?t=1&
 Controls: scroll / swipe / ↑↓ to walk, move the mouse to look, click the ground to flick ink,
 click the dots on the right to jump to a section. Stand still and you can turn your head much
 further; crane to the side and colour blooms where you look (see "The colour stage" below).
-The page opens on a greeting while the world is built (ink washes drifting on the paper, a brush
-hanging on its cord with a drop of ink gathering at its tip, your name, and a stroke of ink drawing
-itself out beneath it as things load): click or scroll anywhere and the drop falls, and the world
-blooms from where it lands, your name carrying on into it.
+The page opens on a greeting while the world is built (a great brush hanging overhead in a dim
+grey room, a thread of incense smoke curling up beside it, a drop of ink gathering at its tip as
+things load, and your name; nothing of the world shows out there): click or scroll anywhere and
+the drop falls into a scroll lying unrolled below, and the world paints itself out over it from
+where it lands.
 Walk all the way to the end, up the steep stone steps onto the rim (the land's shape: `LAND` in
 `world/path.js`), and you sit down on the bench and
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
@@ -64,6 +65,8 @@ src/
   app/
     loader.js        the greeting while the world is built (drawn in index.html + style.css): a brush
                      whose drop falls into the world when you click
+    greeting.js      ...its 3D: the brush, the incense smoke (SMOKE), where you stand (EYE, LOOK),
+                     the drop falling into the scroll and the world painting itself out over it
     walker.js        you: input, moving along the path, camera, standing still + craning,
                      a gentle nudge toward your points as you approach them; sitting at the end
                      and turning round to the painting

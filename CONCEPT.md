@@ -42,10 +42,11 @@ stopped to look.
 
 ## The walk
 
-1. **The greeting**: while the world is built, washes of ink drift across the paper, a red sun
-   sinks into the mist behind faint ranges, and a brush hangs on its silk cord, a drop of ink
-   gathering at its tip; your name waits below with its seal. Click anywhere: the drop falls,
-   and the world blooms out from where it lands, your name carrying on into it.
+1. **The greeting**: while the world is built, a great brush hangs overhead in a dim, empty room,
+   a thread of incense smoke curling up beside it and a drop of ink gathering at its tip; your
+   name waits below. Nothing of the world shows out here: it's all inside the scroll. Click
+   anywhere: the drop falls into a handscroll lying unrolled below, and the world paints itself
+   out over the scroll from where it lands, until it's all you see.
 2. **Contacts, at the lotus pond**: three small carved rocks on its near shore, **GitHub ↗**,
    **LinkedIn ↗** and **Email ↗** (click them).
 3. **Experience**: an avenue of stone tablets (碑林), one per role, between whitewashed garden

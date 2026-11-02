@@ -1,16 +1,18 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-// The greeting, in 3D, while the world is built behind it: you stand low in a dim grey space,
-// soft bubbles drifting up past you, looking up at a great brush hanging overhead (a glass
-// handle, a stone ferrule, and bristles soaked with ink halfway up). A drop of ink gathers at
+// The greeting, in 3D, while the world is built behind it: you stand in a dim grey space,
+// looking up at a great brush hanging overhead (a glass handle, a stone ferrule, and bristles
+// soaked with ink halfway up), a thread of incense smoke curling up beside it. Nothing of the
+// world shows out here: it's all inside the scroll. A drop of ink gathers at
 // its tip as the world loads. When you begin, it lets go and falls straight down into a scroll
 // lying unrolled below, your eyes following it down. Where it lands, the world itself paints
 // itself out over the scroll, and you come down over it until it fills your view: then it is
 // the world (main.js draws it live, into the scroll, from the moment the drop lands).
 
 const TIP = new THREE.Vector3(0, 2.5, -2.3); // the brush's tip, above and ahead of you
-const LOOK = new THREE.Vector3(0, 5.6, -3.2); // where you look while you wait (up the brush)
+const EYE = new THREE.Vector3(0, 0.9, 2.5); // where you are while you wait: back a little, so you see the brush's shape
+const LOOK = new THREE.Vector3(0, 3.6, -2.3); // where you look while you wait: up at the brush (~30°: right under it, it foreshortens into a spike)
 const SIZE = 1.5; // how big the brush is (it should loom)
 const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
 const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
@@ -72,8 +74,8 @@ export function createGreeting(renderer) {
   scroll.group.position.set(0, PAPER_Y, TIP.z);
   scene.add(scroll.group);
 
-  // ---------- bubbles drifting up through the grey ----------
-  const bubbles = makeBubbles(scene);
+  // ---------- incense smoke, curling up through the grey ----------
+  const smoke = makeSmoke(scene, EYE);
 
   // ---------- the world, painting itself onto the scroll ----------
   // Where the drop lands, the world (drawn live into worldTarget by main.js, its own first ink
@@ -192,6 +194,7 @@ export function createGreeting(renderer) {
     // (on a tall phone screen, widen the view so the brush still fits)
     camera.fov = camera.aspect < 0.8 ? 70 : 55;
     camera.updateProjectionMatrix();
+    smoke.layout(camera.aspect);
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     worldTarget.setSize(size.x, size.y);
     painting.scale.set(PAINT_H * camera.aspect * SPLAT_SCALE, 1, PAINT_H * SPLAT_SCALE);
@@ -264,7 +267,7 @@ export function createGreeting(renderer) {
       const dive = THREE.MathUtils.clamp((t - FALL_TIME * 0.25) / (FALL_TIME * 0.75 + SPREAD_TIME), 0, 1);
       const e = dive * dive * (3 - 2 * dive);
       const end = above.position.y ? above.position : new THREE.Vector3(falling.from.x, PAPER_Y + PAINT_H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))), falling.from.z);
-      camera.position.set(end.x * e, THREE.MathUtils.lerp(0, end.y, e), THREE.MathUtils.lerp(0, end.z, e));
+      camera.position.lerpVectors(EYE, end, e);
       settle = falling.landed ? THREE.MathUtils.smoothstep(dive, 0.45, 1) : 0;
     }
     drop.position.copy(dropPos);
@@ -287,8 +290,9 @@ export function createGreeting(renderer) {
       camera.quaternion.slerpQuaternions(qLook, above.quaternion, settle);
     }
 
-    bubbles.update(dt, camera);
-    bubbles.fade(1 - settle); // (gone by the time you look down on the painting)
+    // the smoke: gone as you go down after the drop (looking down on them, its cards would show)
+    if (!reduced) smoke.update(dt);
+    smoke.fade(falling ? 1 - THREE.MathUtils.smoothstep(falling.t, 0.1, 0.55) : 1);
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
   }
@@ -298,7 +302,7 @@ export function createGreeting(renderer) {
     start() {
       resize();
       addEventListener("resize", resize);
-      camera.position.set(0, 0, 0);
+      camera.position.copy(EYE);
       camera.lookAt(look);
       running = true;
       return new Promise((resolve) => requestAnimationFrame((t) => {
@@ -563,67 +567,108 @@ function backdrop() {
   return tex;
 }
 
-/** A bubble: a faint grey film with a brighter rim and a glint; soft (out of focus) or crisp. */
-function bubbleTexture(soft) {
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d");
-  if (soft) g.filter = "blur(5px)";
-  const body = g.createRadialGradient(64, 64, 0, 64, 64, 52);
-  body.addColorStop(0, "rgba(200, 205, 212, 0.06)");
-  body.addColorStop(0.82, "rgba(200, 205, 212, 0.14)");
-  body.addColorStop(0.95, "rgba(225, 230, 236, 0.55)");
-  body.addColorStop(1, "rgba(225, 230, 236, 0)");
-  g.fillStyle = body;
-  g.beginPath();
-  g.arc(64, 64, 52, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = "rgba(255, 255, 255, 0.5)";
-  g.beginPath();
-  g.ellipse(46, 44, 9, 5, -0.7, 0, Math.PI * 2);
-  g.fill();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
+/**
+ * Incense smoke, rising from somewhere down below: a thread that comes up straight, starts to
+ * waver, and higher up curls and comes apart into wisps that thin away into the grey. Each
+ * thread is a shader on a tall card turned to face you (no textures: nothing to make or load).
+ *   at:     its source (m), well below what you see, so the thread comes up into view
+ *   narrowX: ...its x on a tall phone screen, where there's less room beside the brush
+ *   size:   the card it's drawn on, wide and tall (m), up from the source
+ *   shape:  m above the source where it starts to waver, where it's all curls, where it's gone
+ *   thick:  its half-width at the source, and up where it's gone (m)
+ */
+const SMOKE = [
+  { at: [1.35, -4, -1.6], narrowX: 0.95, size: [4.5, 12.5], shape: [6.4, 9.6, 12], thick: [0.01, 0.3], opacity: 0.55, seed: 0.37 },
+  // ...and a fainter one further back
+  { at: [8.5, -6, -13], size: [8, 20], shape: [12, 16, 19.5], thick: [0.03, 0.6], opacity: 0.22, seed: 2.71 },
+];
 
-function makeBubbles(scene) {
-  const crisp = new THREE.SpriteMaterial({ map: bubbleTexture(false), transparent: true, depthWrite: false, color: 0xb9bec5 });
-  const soft = new THREE.SpriteMaterial({ map: bubbleTexture(true), transparent: true, depthWrite: false, color: 0xa7adb5 });
-  const list = [];
-  const place = (b, anywhere) => {
-    // scattered through the space you're looking up into, near and far
-    const d = THREE.MathUtils.randFloat(3, 30);
-    b.sprite.position.set(
-      THREE.MathUtils.randFloatSpread(d * 1.4),
-      anywhere ? THREE.MathUtils.randFloat(-d * 0.3, d * 1.3) : -d * 0.4,
-      -d * 0.75 + THREE.MathUtils.randFloatSpread(d * 0.5),
-    );
-    const size = THREE.MathUtils.randFloat(0.12, 0.45) * (0.6 + d * 0.06);
-    b.sprite.scale.setScalar(size);
-    b.sprite.material = d > 12 ? soft : crisp;
-    b.speed = THREE.MathUtils.randFloat(0.15, 0.5) * (0.5 + d * 0.04);
-    b.phase = Math.random() * 10;
-    b.top = d * 1.4;
-  };
-  for (let i = 0; i < 70; i++) {
-    const b = { sprite: new THREE.Sprite(crisp) };
-    place(b, true);
-    scene.add(b.sprite);
-    list.push(b);
-  }
+function makeSmoke(scene, eye) {
+  const threads = SMOKE.map(({ at, narrowX = at[0], size, shape, thick, opacity, seed }) => {
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uSeed: { value: seed },
+        uOpacity: { value: opacity },
+        uSize: { value: new THREE.Vector2(...size) },
+        uShape: { value: new THREE.Vector3(...shape) },
+        uThick: { value: new THREE.Vector2(...thick) },
+        uColor: { value: new THREE.Color(0xd9dde2) },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime, uSeed, uOpacity;
+        uniform vec2 uSize, uThick;
+        uniform vec3 uShape, uColor;
+        varying vec2 vUv;
+        float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
+        }
+        float fbm(vec2 p) {
+          float s = 0.0, a = 0.5;
+          for (int i = 0; i < 4; i++) { s += a * n(p); p = p * 2.03 + 17.1; a *= 0.5; }
+          return s;
+        }
+        void main() {
+          vec2 p = vec2((vUv.x - 0.5) * uSize.x, vUv.y * uSize.y); // m: across from the thread, up from its source
+          float t = uTime + uSeed * 10.0;
+          float waver = smoothstep(uShape.x, uShape.y, p.y); // 0: a straight thread → 1: all curls
+          float k = smoothstep(uShape.x, uShape.z, p.y);     // 0 → 1: from where it starts to go, to gone
+          // the whole column leans and sways, slowly
+          float sway = (n(vec2(p.y * 0.3 - t * 0.12, uSeed * 7.0)) - 0.5) * 1.0 * waver;
+          // ripples running up the thread as it starts to go
+          float ripple = sin(p.y * 2.6 - t * 1.1 + uSeed * 4.0) * 0.12 * smoothstep(uShape.x, mix(uShape.x, uShape.y, 0.5), p.y);
+          // eddies: the air stirring it, carried up with it
+          vec2 q = vec2(p.x * 1.1, p.y - t * 0.45) * 0.8;
+          vec2 eddy = vec2(fbm(q + uSeed), fbm(q + uSeed + vec2(5.2, 1.3))) - 0.5;
+          vec2 pw = p + eddy * 2.2 * waver * waver;
+          float x = pw.x - sway - ripple;
+          // a ribbon, twisting as it rises: edge-on it's thin and bright, face-on wider and fainter
+          float twist = 0.55 + 0.9 * n(vec2(p.y * 1.4 - t * 0.45, uSeed * 3.0));
+          float w = mix(uThick.x, uThick.y, k * k) * twist;
+          float a = exp(-x * x / (w * w)) / twist;
+          // faint where it first comes up, still and straight
+          a *= mix(0.25, 1.0, smoothstep(uShape.x - 1.5, uShape.x + 1.0, p.y));
+          // higher up it comes apart into wisps
+          float wisps = smoothstep(0.35, 0.7, fbm(pw * vec2(2.4, 1.2) - vec2(0.0, t * 0.6) + uSeed * 3.0));
+          a *= mix(1.0, wisps, smoothstep(0.15, 0.8, k));
+          // fainter as it spreads, and gone by the top
+          a *= mix(1.0, 0.25, k) * (1.0 - smoothstep(0.7, 1.0, k)) * uOpacity;
+          gl_FragColor = vec4(uColor, a);
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(size[0], size[1]).translate(0, size[1] / 2, 0), material);
+    card.position.fromArray(at);
+    scene.add(card);
+    return { material, opacity, card, x: [at[0], narrowX] };
+  });
   return {
-    /** k: 1 → 0, the bubbles fading away */
+    /** Where the threads rise, for this shape of screen (tall phone screens: narrowX). */
+    layout(aspect) {
+      for (const s of threads) {
+        s.card.position.x = s.x[aspect < 0.8 ? 1 : 0];
+        s.card.lookAt(eye.x, s.card.position.y, eye.z); // (upright, turned to face you)
+      }
+    },
+    /** k: 1 → 0, the smoke fading away */
     fade(k) {
-      crisp.opacity = soft.opacity = k;
+      for (const s of threads) s.material.uniforms.uOpacity.value = s.opacity * k;
     },
     update(dt) {
-      for (const b of list) {
-        b.phase += dt;
-        b.sprite.position.y += b.speed * dt;
-        b.sprite.position.x += Math.sin(b.phase * 0.9) * 0.05 * dt;
-        if (b.sprite.position.y > b.top) place(b, false);
-      }
+      for (const s of threads) s.material.uniforms.uTime.value += dt;
     },
   };
 }
