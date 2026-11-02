@@ -10,8 +10,10 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 const TIP = new THREE.Vector3(0, 2.5, -2.3); // the brush's tip, above and ahead of you
 const LOOK = new THREE.Vector3(0, 5.6, -3.2); // where you look while you wait (up the brush)
 const SIZE = 1.5; // how big the brush is (it should loom)
-const FALL_TIME = 1.3; // seconds from letting go to filling your view
-const DROP_TO = -7; // how far down the drop falls (it falls straight down, and you follow it)
+const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
+const DIVE_TIME = 1.1; // ...then down into the scroll after it, until its paper is all you see
+const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
+const SCROLL = { width: 9, depth: 2.9 }; // (a handscroll: long, and narrow)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -63,13 +65,18 @@ export function createGreeting(renderer) {
   const drop = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), ink);
   scene.add(drop);
 
+  // ---------- the scroll the drop falls into, unrolled down below ----------
+  const scroll = makeScroll();
+  scroll.group.position.set(0, PAPER_Y, TIP.z);
+  scene.add(scroll.group);
+
   // ---------- bubbles drifting up through the grey ----------
   const bubbles = makeBubbles(scene);
 
   // ---------- state ----------
   let progress = 0; // how much of the world is built (0–1): the drop swells with it
   let shown = 0;    // ...eased, so it swells smoothly
-  let falling = null; // { t, from, resolve } once it lets go
+  let falling = null; // { t, from, onCover, resolve } once it lets go
   let running = false;
   let last = 0;
   const look = LOOK.clone();
@@ -104,18 +111,35 @@ export function createGreeting(renderer) {
       const tremble = 1 + Math.sin(time * 7) * 0.025 * shown;
       drop.scale.set(r / tremble, r * 1.12 * tremble, r / tremble);
     } else {
-      // let go: it falls straight down, quickening, stretching as it goes; and you sink after
-      // it, a moment behind, looking down on it as it drops away into the dark
+      // let go: it falls straight down, quickening, stretching as it goes, into the scroll
+      // below; you sink after it, eyes on it. It lands and spreads into the paper, and you
+      // carry on down into the scroll, until its paper is all you see
       const t = (falling.t += dt);
       const k = Math.min(t / FALL_TIME, 1);
+      const land = PAPER_Y + r * 0.6;
       dropPos.copy(falling.from);
-      dropPos.y += (DROP_TO - falling.from.y) * k * k;
-      const follow = Math.pow(k, 2.4);
-      camera.position.set(0, (DROP_TO + 1.8) * follow, (falling.from.z + 1.1) * follow);
-      const stretch = 1 + 0.35 * Math.min(1, k * 2);
-      drop.scale.set(r / Math.sqrt(stretch), r * stretch, r / Math.sqrt(stretch));
+      dropPos.y += (land - falling.from.y) * k * k;
       brush.position.y = TIP.y + Math.sin(Math.min(t * 6, Math.PI)) * 0.08 * Math.exp(-t * 2); // (the brush springs up)
-      if (k >= 1 && falling.resolve) {
+      // (you: from where you stood, down to just over the paper, looking down on the splash;
+      // standing a little back from it, so you never look quite straight down)
+      const dive = Math.min(Math.max((t - FALL_TIME * 0.35) / (FALL_TIME * 0.65 + DIVE_TIME), 0), 1);
+      const e = dive * dive * (3 - 2 * dive);
+      const h = THREE.MathUtils.lerp(0, PAPER_Y + 0.12, e); // (your height)
+      camera.position.set(dropPos.x * e, h, THREE.MathUtils.lerp(0, falling.from.z + 0.06, e));
+      if (k < 1) {
+        const stretch = 1 + 0.35 * Math.min(1, k * 2);
+        drop.scale.set(r / Math.sqrt(stretch), r * stretch, r / Math.sqrt(stretch));
+      } else {
+        // landed: the drop is gone into the paper, and its ink spreads out there
+        drop.visible = false;
+        scroll.splash(dropPos.x - scroll.group.position.x, dropPos.z - scroll.group.position.z, t - FALL_TIME);
+      }
+      // nearly there: the paper fills your view (the page layer fades to the same paper)
+      if (t > FALL_TIME + DIVE_TIME - 0.4 && falling.onCover) {
+        falling.onCover();
+        falling.onCover = null;
+      }
+      if (t > FALL_TIME + DIVE_TIME && falling.resolve) {
         falling.resolve();
         falling.resolve = null;
       }
@@ -124,7 +148,7 @@ export function createGreeting(renderer) {
 
     // where you look: up the brush while you wait (drifting a touch), then after the drop
     const want = falling ? dropPos : LOOK.clone().add(new THREE.Vector3(Math.sin(time * 0.2) * 0.15, Math.sin(time * 0.27) * 0.1, 0));
-    if (falling) look.copy(dropPos); // (your eyes stay on it as it falls)
+    if (falling) look.copy(dropPos).setY(Math.min(dropPos.y, camera.position.y - 0.05)); // (your eyes stay on it)
     else look.lerp(want, 1 - Math.exp(-dt * 2));
     camera.lookAt(look);
 
@@ -150,11 +174,17 @@ export function createGreeting(renderer) {
     progress(k) {
       progress = Math.max(progress, Math.min(1, k));
     },
-    /** Let the drop go. Resolves as it fills your view. */
-    fall() {
-      if (reduced) return Promise.resolve();
+    /**
+     * Let the drop go. onCover(): called as the scroll's paper is about to fill your view (cover
+     * it with the same paper, then). Resolves once you're down in the paper.
+     */
+    fall(onCover = () => {}) {
+      if (reduced) {
+        onCover();
+        return Promise.resolve();
+      }
       return new Promise((resolve) => {
-        falling = { t: 0, from: dropPos.clone(), resolve };
+        falling = { t: 0, from: dropPos.clone(), onCover, resolve };
       });
     },
     stop() {
@@ -263,6 +293,118 @@ function strand(g, x, sway, from, to) {
     g.bezierCurveTo(x + dx + sway, from + (to - from) * 0.33, x + dx - sway, from + (to - from) * 0.66, x + dx + sway * 0.3, to);
     g.stroke();
   }
+}
+
+/**
+ * The scroll the drop falls into: a handscroll lying unrolled, its paper mounted in grey-blue
+ * silk at either end, wound on dark wooden rollers with pale jade knobs. splash(x, z, age):
+ * the drop's ink spreading into the paper where it landed (x, z: on the scroll), age seconds on.
+ */
+function makeScroll() {
+  const { width: W, depth: D } = SCROLL;
+  const group = new THREE.Group();
+
+  // the paper and its silk mounting, painted onto one canvas
+  const c = document.createElement("canvas");
+  c.width = 2048;
+  c.height = Math.round((2048 * D) / W);
+  const g = c.getContext("2d");
+  const cw = c.width, ch = c.height;
+  g.fillStyle = "#efe7d6";
+  g.fillRect(0, 0, cw, ch);
+  for (let i = 0; i < 2600; i++) { // fibres in the paper
+    const x = Math.random() * cw, y = Math.random() * ch, a = Math.random() * Math.PI;
+    const l = 4 + Math.random() * 16;
+    g.strokeStyle = `rgba(150, 130, 100, ${0.04 + Math.random() * 0.08})`;
+    g.lineWidth = 0.6;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+    g.stroke();
+  }
+  const silk = cw * 0.075;
+  for (const x0 of [0, cw - silk]) { // the silk at either end, with a fine border where it meets the paper
+    g.fillStyle = "#6f7f8c";
+    g.fillRect(x0, 0, silk, ch);
+    for (let y = 0; y < ch; y += 6) {
+      g.fillStyle = `rgba(255, 255, 255, ${0.03 + (y % 12 ? 0 : 0.03)})`;
+      g.fillRect(x0, y, silk, 2);
+    }
+    g.fillStyle = "#c8b78f";
+    g.fillRect(x0 === 0 ? silk - 6 : x0, 0, 6, ch);
+  }
+  g.fillStyle = "rgba(111, 127, 140, 0.9)"; // (silk bands along the long edges too)
+  g.fillRect(0, 0, cw, ch * 0.035);
+  g.fillRect(0, ch * 0.965, cw, ch * 0.035);
+  const map = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 8;
+  const paper = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ map, roughness: 0.95, envMapIntensity: 0.9 }),
+  );
+  group.add(paper);
+
+  // the rollers it's wound on, at either end, with jade knobs
+  const wood = new THREE.MeshPhysicalMaterial({ color: 0x2c2018, roughness: 0.45, clearcoat: 0.6 });
+  const jade = new THREE.MeshPhysicalMaterial({ color: 0xbfd0c4, roughness: 0.15, clearcoat: 1, transmission: 0.3, thickness: 0.2 });
+  for (const s of [-1, 1]) {
+    const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, D + 0.3, 32).rotateX(Math.PI / 2), wood);
+    roller.position.set(s * (W / 2 + 0.1), 0.11, 0);
+    group.add(roller);
+    for (const e of [-1, 1]) {
+      const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.16, 32).rotateX(Math.PI / 2), jade);
+      knob.position.set(s * (W / 2 + 0.1), 0.11, e * (D / 2 + 0.22));
+      group.add(knob);
+    }
+  }
+
+  // the splash: a blot of ink, spreading into the paper
+  const blot = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: blotTexture(), transparent: true, depthWrite: false, color: 0xffffff }),
+  );
+  blot.position.y = 0.003;
+  blot.visible = false;
+  group.add(blot);
+
+  return {
+    group,
+    splash(x, z, age) {
+      blot.visible = true;
+      blot.position.x = x;
+      blot.position.z = z;
+      blot.scale.setScalar(0.12 + 0.75 * (1 - Math.exp(-age * 3.5))); // (fast, then slowly creeping out)
+    },
+  };
+}
+
+/** A blot of ink soaking into paper: a ragged, feathered round, and a few spattered drops. */
+function blotTexture() {
+  const S = 512;
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d");
+  g.filter = "blur(3px)";
+  g.fillStyle = "rgba(10, 11, 14, 0.95)";
+  for (let i = 0; i < 70; i++) { // overlapping lobes: a ragged edge
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.random() * S * 0.12;
+    g.beginPath();
+    g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, S * (0.12 + Math.random() * 0.12), 0, Math.PI * 2);
+    g.fill();
+  }
+  g.filter = "blur(1px)";
+  for (let i = 0; i < 26; i++) { // spatter
+    const a = Math.random() * Math.PI * 2;
+    const d = S * (0.3 + Math.random() * 0.17);
+    g.beginPath();
+    g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, 2 + Math.random() * 7, 0, Math.PI * 2);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** The dim grey backdrop: darker below, a soft light behind the brush. */

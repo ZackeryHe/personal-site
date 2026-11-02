@@ -1,7 +1,12 @@
 // What it says: everything on the page that's about you. (All placeholders for now.)
 
 export const SITE = {
-  name: "Zackery He", // the title card, the tab title, and carved on the entrance rock
+  name: "Zackery He", // the greeting, the tab title, and carved on the entrance rock
+  // the note on the right as you arrive in the world (a line each), and the ways to move about
+  intro: [
+    "Stand still and appreciate the scenery.",
+    "Click to fill the painting with colours.",
+  ],
   hint: "scroll or swipe to walk · move to look · click to flick ink",
   stillHint: "linger — turn your head to look around", // shown the first time you stand still
 

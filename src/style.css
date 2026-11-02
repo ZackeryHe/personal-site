@@ -194,8 +194,13 @@ html, body, #scene, a, button { cursor: none; }
 #progress .marker:hover::after,
 #progress .marker:focus-visible::after { opacity: 0.85; }
 
+/* the opening note, on the right as you arrive (clear of the progress line at the edge) */
+.station--intro { left: auto; right: calc(6vw + 40px); text-align: right; max-width: min(380px, 70vw); }
+.station--intro .body p { font-size: 1.35rem; }
+
 @media (max-width: 600px) {
   .station { left: 16px; right: 16px; bottom: 10vh; }
+  .station--intro { left: 16px; right: 48px; top: 12vh; bottom: auto; }
   #progress { right: 14px; }
 }
 
@@ -297,26 +302,18 @@ body.is-greeting::after { opacity: 0; }
 #loader.is-ready .loader-status { animation: status-breathe 2.8s ease-in-out infinite; }
 #loader.is-falling .loader-title { opacity: 0; }
 
-/* the ink: it comes up as the drop arrives and fills your view (timed to greeting.js's fall), then
-   the world opens out of it, from where the world's first drop lands (--at) */
-@property --hole {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
+/* the paper: as you come down into the scroll its paper fills your view, and this same paper comes
+   up over it (greeting.js calls for it); the world, which starts as blank paper too, is beneath */
 .loader-ink {
   position: absolute;
   inset: 0;
-  background: #050608;
+  background: var(--paper);
   opacity: 0;
   pointer-events: none;
-  --at: 50% 60%;
-  -webkit-mask-image: radial-gradient(circle at var(--at), transparent var(--hole), #000 calc(var(--hole) + 18vmax));
-  mask-image: radial-gradient(circle at var(--at), transparent var(--hole), #000 calc(var(--hole) + 18vmax));
 }
-#loader.is-falling .loader-ink { opacity: 1; transition: opacity 0.32s ease-in 0.98s; }
+#loader.is-covered .loader-ink { opacity: 1; transition: opacity 0.38s ease-in; }
 #loader.is-open { background: transparent; pointer-events: none; }
-#loader.is-open .loader-ink { --hole: 160vmax; transition: --hole 1.4s cubic-bezier(0.3, 0.1, 0.4, 1); }
+#loader.is-open .loader-ink { opacity: 0; transition: opacity 0.8s ease; }
 
 @keyframes status-breathe {
   0%, 100% { opacity: 0.75; }
@@ -325,6 +322,4 @@ body.is-greeting::after { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   #loader.is-ready .loader-status { animation: none; }
-  #loader.is-falling .loader-ink { transition: opacity 0.4s ease; }
-  #loader.is-open .loader-ink { opacity: 0; transition: opacity 0.6s ease; }
 }

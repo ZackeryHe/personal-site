@@ -78,8 +78,14 @@ function panelElement(p) {
   const el = document.createElement("section");
   el.className = "station";
   if (p.titleCard) {
-    el.innerHTML = `<h1></h1><p class="hint"></p>`;
-    el.querySelector("h1").textContent = SITE.name;
+    // the opening note, on the right (the panels along the walk stay on the left)
+    el.classList.add("station--intro");
+    el.innerHTML = `<div class="body"></div><p class="hint"></p>`;
+    for (const line of SITE.intro) {
+      const para = document.createElement("p");
+      para.textContent = line;
+      el.querySelector(".body").appendChild(para);
+    }
     el.querySelector(".hint").textContent = SITE.hint;
   } else {
     el.innerHTML = `<h2><span class="zh"></span> <span class="heading"></span></h2><div class="body"></div>`;
@@ -127,11 +133,11 @@ export function createUI({ onJump }) {
   const dot = document.getElementById("progress-dot");
 
   return {
-    /** introText: 0 → 1 as the name first writes itself in */
+    /** introText: 0 → 1 as the opening note first writes itself in */
     update(progress, introText) {
       for (const s of panels) {
         let k = clamp01((1 - Math.abs(progress - s.at) / 0.07) * 1.6);
-        if (s === panels[0]) k = Math.min(k, introText); // the title card waits for the opening
+        if (s === panels[0]) k = Math.min(k, introText); // the opening note waits for the first drop
         s.set(ease(k));
       }
       dot.style.top = `calc(${(progress * 100).toFixed(2)}% - 4px)`;

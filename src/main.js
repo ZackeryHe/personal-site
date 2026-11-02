@@ -109,8 +109,8 @@ async function boot() {
     world.update(now, camera);
 
     walked += Math.abs(walker.speed) * dt;
-    // your name writes itself in (unless the greeting has already set it there: it carries on)
-    ui.update(walker.progress, skipGreeting ? clamp01((now - 0.3) / 1.4) : 1);
+    // the opening note writes itself in once the first drop has landed and the ink is spreading
+    ui.update(walker.progress, drops.introStart === null ? 0 : clamp01((now - drops.introStart - 1.2) / 1.4));
     markers.update(camera, drops.introStart === null ? 0 : clamp01((now - drops.introStart) / 2));
     picker.update();
     brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
@@ -134,14 +134,13 @@ async function boot() {
   greeting?.progress(1);
   if (skipGreeting) loader.dismiss();
   else {
-    // ...until you begin: the drop falls and you follow it down into the ink; the world
-    // starts beneath it, its first drop landing at once, and opens out of the ink from there
-    await loader.ready({ fall: () => greeting.fall() });
+    // ...until you begin: the drop falls into the scroll and you follow it down into its paper;
+    // the world starts beneath that same paper, from its own blank page, its first drop falling
+    // as the paper clears
+    await loader.ready({ fall: (onCover) => greeting.fall(onCover) });
     greeting.dispose();
-    globals.uTime.value = CONFIG.intro.blankPaper - 0.001;
     resize();
-    const spot = walker.point.clone().addScaledVector(walker.tangent, 5).project(camera);
-    loader.open({ x: (spot.x * 0.5 + 0.5) * innerWidth, y: (-spot.y * 0.5 + 0.5) * innerHeight });
+    loader.open();
   }
   requestAnimationFrame(frame);
 }
