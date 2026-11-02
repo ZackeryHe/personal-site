@@ -25,6 +25,8 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let climbing = 0;  // how steeply the way ahead rises (eased): you look up the steps as you climb
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
   let movedAt = 0;  // when the pointer last moved (ms)
+  let fingers = false; // you look about with a finger (dragging), not a mouse
+  let satAt = 0;    // when you last sat down (ms)
   const holds = new Map(); // who's holding the view still, and at what gaze, whatever the pointer does (see hold())
   const heldGaze = () => holds.values().next().value ?? null; // (the first to hold it)
   const walk = (metres) => {
@@ -51,6 +53,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   // a mouse: where it is is where you look
   addEventListener("pointermove", (e) => {
     if (e.pointerType === "touch") return; // (a finger: see below)
+    fingers = false;
     lookAt((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   });
   // a finger: each swipe either walks or looks, never both. Which is decided as it starts and
@@ -70,7 +73,13 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       touch.mode = Math.abs(dy) >= Math.abs(dx) ? "walk" : "look";
     }
     if (touch.mode === "walk") walk((touch.y - t.clientY) * W.touch);
-    else lookAt(clamp(mouse.x - ((t.clientX - touch.x) / innerWidth) * W.touchLook, -1, 1), mouse.y);
+    else {
+      // (a finger isn't stopped by the screen's edges: seated, it has as far to go either way
+      // from where you sat down, however far round you were looking as you sat)
+      fingers = true;
+      const [lo, hi] = anchor ? [anchor.x - 1, anchor.x + 1] : [-1, 1];
+      lookAt(clamp(mouse.x - ((t.clientX - touch.x) / innerWidth) * W.touchLook, lo, hi), mouse.y);
+    }
     touch.x = t.clientX;
     touch.y = t.clientY;
   }, { passive: true });
@@ -207,11 +216,15 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       right.crossVectors(tangent, up).normalize();
       // at the very end you sit down on the bench (and get up again when you scroll back)
       const wantSit = bench && target > 0.999 && progress > 0.985 ? 1 : 0;
-      if (wantSit && !anchor) anchor = { x: mouse.sx, y: mouse.sy };
+      if (wantSit && !anchor) {
+        anchor = { x: mouse.sx, y: mouse.sy };
+        satAt = performance.now();
+      }
       seated += (wantSit - seated) * Math.min(1, dt * (wantSit ? W.sitEase : 3));
       if (!wantSit && seated < 0.001) {
         seated = 0; // fully up again: only now let go of where you were looking as you sat
         anchor = null;
+        mouse.x = clamp(mouse.x, -1, 1); // (a finger may have taken it further round, seated)
       }
       const sit = seated * seated * (3 - 2 * seated);
       nudge += (nudgeTarget() * (1 - sit) - nudge) * Math.min(1, dt * W.nudgeEase);
@@ -224,12 +237,21 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       let lookY = -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp + climbing * 10 * W.climbLook;
       if (sit > 0) {
         // seated, you turn round to the painting, the same view wherever you were looking; from
-        // there the mouse looks around. Either edge of the screen turns you right round to face
-        // the canyon (however far the mouse was from that edge as you sat down).
+        // there you look around, right round to face the canyon either way. A mouse: either edge
+        // of the screen (however far the mouse was from it as you sat down; if it was right by
+        // an edge there's little room that way, so held there, it carries you on round). A
+        // finger: a screen's width of dragging either way from where you sat.
+        if (anchor && !fingers && sit > 0.9 && movedAt > satAt && performance.now() - movedAt < W.sitEdgeFor * 1000) {
+          const room = W.sitEdgeRoom, step = dt * W.sitEdgeSlide;
+          if (mouse.x > 0.97 && 1 - anchor.x < room) anchor.x = Math.max(anchor.x - step, 1 - room);
+          if (mouse.x < -0.97 && 1 + anchor.x < room) anchor.x = Math.min(anchor.x + step, room - 1);
+        }
         const ax = anchor?.x ?? 0;
         const ay = anchor?.y ?? 0;
         const dx = mouse.sx - ax;
-        const u = dx > 0 ? Math.min(1, dx / Math.max(1 - ax, 0.2)) : Math.max(-1, dx / Math.max(1 + ax, 0.2));
+        const u = fingers
+          ? clamp(dx, -1, 1)
+          : dx > 0 ? Math.min(1, dx / Math.max(1 - ax, W.sitEdgeRoom)) : Math.max(-1, dx / Math.max(1 + ax, W.sitEdgeRoom));
         const around = u > 0 ? -shaped(u) * turnRight : shaped(-u) * turnLeft;
         yaw = lerp(yaw, angleTo(tangent, painting.facing) + around, sit);
         lookY = lerp(lookY, 10 * Math.tan(painting.pitch) - (mouse.sy - ay) * W.lookPitchStill, sit);

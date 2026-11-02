@@ -40,7 +40,9 @@ Walk all the way to the end, up the steep stone steps onto the rim (the land's s
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
 colour where you stopped to look. It's the same view whichever way you were looking
 (`places.painting` in `world/places.js`); move the mouse to look around (right round to the
-canyon at the edges of the screen). Wherever you rest your eyes, the view settles into a
+canyon at the edges of the screen, however near an edge it was as you sat: held there, it
+carries you on round; `walk.sitEdge*`), or on a phone drag either way (a screen's width each way
+from where you sat). Wherever you rest your eyes, the view settles into a
 painter's framing (a longer lens: `walk.frameRest`, `frameEase`). Any view from the bench is
 yours to keep: rest on one and it's framed (ink corner marks show it); hover "Copy this view"
 and you're turned back to
