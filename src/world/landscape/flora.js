@@ -60,11 +60,15 @@ export function build({ scene, P, places, rng }) {
  * Pines at the spots ({ x, z, h, autumn?, y? }: y, if given, is the ground they stand on).
  * climb / channel: how the ink reaches them (a pine high on a rock: less climb, so it inks in
  * with the rock under it rather than waiting for the ink to climb up from the ground below).
+ * lite: for pines only ever seen far off, in the mist: the same tree, the same branches and the
+ * same ink, so the same silhouette, but each cloud of needles made of fewer, coarser pads
+ * (about an eighth of the triangles, and less overdraw).
+ * ink: how dark they're inked (1: as every other tree; less, for a far grove paler with distance)
  */
-export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel = "mid" } = {}) {
+export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel = "mid", lite = false, ink = 1 } = {}) {
   // trunk: unit height, base at y=0, a gentle S-bend baked in, flaring at the foot
   const bend = (y) => 0.45 * Math.sin(y * 2.4) - 0.2 * y;
-  const trunkGeo = new THREE.CylinderGeometry(0.13, 0.3, 1, 8, 12).translate(0, 0.5, 0);
+  const trunkGeo = new THREE.CylinderGeometry(0.13, 0.3, 1, lite ? 5 : 8, lite ? 6 : 12).translate(0, 0.5, 0);
   {
     const pos = trunkGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
@@ -75,7 +79,7 @@ export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel 
     trunkGeo.computeVertexNormals();
   }
   const branchGeo = new THREE.CylinderGeometry(0.5, 1, 1, 5).translate(0, 0.5, 0);
-  const padGeo = new THREE.IcosahedronGeometry(1, 2);
+  const padGeo = new THREE.IcosahedronGeometry(1, lite ? 1 : 2);
   {
     // a cloud of needles: lumpy and irregular all round, domed on top, flat underneath
     const pos = padGeo.attributes.position;
@@ -95,13 +99,13 @@ export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel 
 
   const woodMat = inkMaterial({
     channel, climb, noiseScale: 0.35, noiseAmp: 0.3,
-    near: 5, far: 55, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood", soft: true,
+    near: 5, far: 55, density: 1 * ink, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood", soft: true,
   });
   // needle pads: the same ink for every tree; only what colour they turn when colour
   // blooms differs (evergreen: green; the turning trees: their autumn shade)
   const padMat = (tint) => inkMaterial({
     channel, climb, noiseScale: 0.35, noiseAmp: 0.3,
-    near: 6, far: 60, density: 1.45, mist: 1.5, grain: 2.4, sil: 0.7, shade: 0.8,
+    near: 6, far: 60, density: 1.45 * ink, mist: 1.5, grain: 2.4, sil: 0.7, shade: 0.8,
     ragged: 0.9, sway: 0.004, tint, wash: 0.5, soft: true,
     washLit: new THREE.Color("#8fa77a"), washShade: new THREE.Color("#3f5a45"),
     sketch: false, // beyond the ink, trees are drawn as bare trunks; foliage blooms in with the ink
@@ -121,10 +125,11 @@ export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel 
   let nb = 0;
   let pads = null; // the current tree's colour group
   const pad = (c, r, flat = 0.32) => {
-    // a clump of 4–6 overlapping lumpy pads reads as one irregular cloud of needles
-    const parts = 4 + Math.floor(rand() * 3);
+    // a clump of 4–6 overlapping lumpy pads reads as one irregular cloud of needles (lite: 2–3,
+    // the first a little bigger, so the cloud keeps its outline)
+    const parts = lite ? 2 + Math.floor(rand() * 2) : 4 + Math.floor(rand() * 3);
     for (let j = 0; j < parts; j++) {
-      const rr = r * (j === 0 ? 0.85 : rand.range(0.4, 0.7));
+      const rr = r * (j === 0 ? (lite ? 0.98 : 0.85) : rand.range(0.4, 0.7) * (lite ? 1.12 : 1));
       local.compose(
         B.set(c.x + (j ? rand.range(-0.7, 0.7) * r : 0), c.y + (j ? rand.range(-0.08, 0.18) * r : 0), c.z + (j ? rand.range(-0.6, 0.6) * r : 0)),
         q.setFromAxisAngle(UP, rand() * Math.PI),

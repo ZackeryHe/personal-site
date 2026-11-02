@@ -207,6 +207,14 @@ export function planPlaces(P) {
     const toEye = eye.clone().sub(end).setY(0).normalize();
     places.farFalls = { pos: end.addScaledVector(toEye, -40).setY(0), r: 46, h: 60, lip: 0.6, faces: eye.clone().setY(0) };
   }
+  // further round to the left, out over the valley beyond the rim's foot: a long low bank in
+  // the middle distance and a paler one beyond it, a few pines along each (landscape/groves.js):
+  // the middle ground between the rim at your feet and the far ranges, the rest left empty
+  //   r, h: the bank's size   trees: how many pines   ink: how dark (the far one paler)
+  places.groves = [
+    { pos: places.painting.toward(-107, 100), r: 22, h: 6.5, trees: 5, ink: 1 },
+    { pos: places.painting.toward(-123, 215), r: 24, h: 5, trees: 3, ink: 0.55 },
+  ];
   // scholar's rocks: around the pond, by the entrance, where the bamboo ends
   const pond = places.pond;
   const toPath = P.at(T(0.13)).sub(pond.pos).normalize();
@@ -249,6 +257,7 @@ export function planPlaces(P) {
   r(places.crag.pos, places.crag.r + 3);                   // the rock: no trees growing out of it...
   r(places.crag.pos, places.crag.r - 1, { ground: true }); // ...nor grass poking through it
   r(places.farFalls.pos, places.farFalls.r + 6);
+  for (const g of places.groves) r(g.pos, g.r + 4);
   r(places.pine.pos, 3);
   r(P.at(0.97), 7);                // the end: nothing but the view
   r(P.at(0.93), 6);

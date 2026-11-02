@@ -92,7 +92,10 @@ stopped to look.
    a craggy rock standing up out of the meadow with a pine on its crown, the near dark mass that
    anchors that side, and winds away, narrowing, to the foot of a far massif where a thread of
    falls comes down the cleft between its two peaks: one rock near, one fall far, and the mist
-   between. In it all, the ink you left as you
+   between. Further round, out over the valley beyond the rim's foot, a long low bank floats in
+   the mist in the middle distance, a few pines along its crest, one standing taller, and a
+   smaller, paler one beyond it: a few trees on a bank, the rest left empty. In it all, the ink
+   you left as you
    walked and the colour where you stopped to look, so no two are the same. Any view from the
    bench is yours to keep: look around (right round to the canyon and the sun), rest your eyes on
    one and it's framed, and one click puts it on your clipboard, sealed, with a line of colophon.
