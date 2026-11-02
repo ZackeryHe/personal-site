@@ -40,23 +40,42 @@ const fragmentShader = /* glsl */ `
     float d = darkAt(uv);
 
     // 0. Seated at the lookout, the trees and bamboo down in the valley go soft: blurred where
-    // they are (and just round them, so their outlines soften too), from about 20 m off
+    // they are (and just round them, so their own fussy outlines soften too), from about 20 m off.
+    // Each grove is then drawn as one shape, the way a painter does it: a light wash binding it
+    // together, and a brushed contour round it where it stands against the mist and the land far
+    // behind it (not between trees standing together, nor where a trunk meets the ground).
     float softened = 0.0;
+    float groveLine = 0.0;
     if (uSoft > 0.001) {
       vec3 acc = vec3(0.0);
-      float mask = 0.0;
+      float trees = 0.0;    // how many of the samples are trees (soft, from ~20 m off)
+      float treeNear = 1e6; // the nearest of them (m)
+      float openFar = 0.0;  // the furthest sample that isn't a tree (m)
       float r = 2.6 * uRes.y / 900.0;
       for (int i = 0; i < 12; i++) {
         float a = float(i) * 2.39996; // golden angle
         vec2 tuv = uv + vec2(cos(a), sin(a)) * sqrt((float(i) + 0.5) / 12.0) * r * px;
         vec4 t = texture2D(tColor, tuv);
         acc += t.rgb;
-        mask += step(0.82, t.a) * step(t.a, 0.94) * smoothstep(16.0, 34.0, 1.0 / invDepth(tuv));
+        float sd = 1.0 / invDepth(tuv);
+        float isTree = step(0.82, t.a) * step(t.a, 0.94) * smoothstep(16.0, 34.0, sd);
+        trees += isTree;
+        if (isTree > 0.5) treeNear = min(treeNear, sd);
+        else openFar = max(openFar, sd);
       }
       float here = texture2D(tColor, uv).a;
       float self = step(0.82, here) * step(here, 0.94) * smoothstep(16.0, 34.0, 1.0 / invDepth(uv));
-      softened = clamp(max(self, mask / 12.0 * 1.6), 0.0, 1.0) * uSoft;
+      float cover = trees / 12.0;
+      softened = clamp(max(self, cover * 1.6), 0.0, 1.0) * uSoft;
       col = mix(col, acc / 12.0, softened);
+      col *= mix(1.0, 0.8, smoothstep(0.25, 0.85, cover) * uSoft); // the grove's wash
+      if (trees > 0.5 && trees < 11.5) {
+        // its contour: along the blurred edge of the grove, where what's beside it is far behind
+        float band = smoothstep(0.06, 0.32, cover) * (1.0 - smoothstep(0.62, 0.94, cover));
+        float behind = smoothstep(1.15, 1.45, openFar / treeNear);
+        float strokes = mix(0.4, 1.0, smoothstep(0.3, 0.7, fbm2(p * 22.0 + 7.0))); // (broken, like a brush's)
+        groveLine = band * behind * strokes * uSoft * (1.0 - smoothstep(170.0, 320.0, treeNear));
+      }
     }
 
     // 2. Edge darkening: pigment pools where a wash meets lighter paper
@@ -91,9 +110,9 @@ const fragmentShader = /* glsl */ `
     float sketch = edge * sk * (1.0 - inkGate) * mix(0.15, 1.0, dash)
                  * (1.0 - smoothstep(28.0, 45.0, dist));
 
-    line *= 1.0 - softened * 0.85; // (softened: no crisp outlines or pooled edges)
+    line *= 1.0 - softened * 0.85; // (softened: no fussy outlines or pooled edges, just the grove's)
     pool *= 1.0 - softened * 0.6;
-    vec3 c = mix(col, uInk, clamp(pool * 0.35 + line * 0.75, 0.0, 0.9));
+    vec3 c = mix(col, uInk, clamp(pool * 0.35 + line * 0.75 + groveLine * 0.8, 0.0, 0.9));
     c = mix(c, uSketchCol, sketch * 0.7);
 
     // 4. Granulation (pigment settling into paper tooth), only inside pigment
