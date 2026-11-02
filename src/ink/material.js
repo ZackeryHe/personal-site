@@ -7,11 +7,26 @@ export const FAR_TINT = new THREE.Color("#6b7b89"); // distant things go pale bl
 export const OCHRE = new THREE.Color("#c99a62");    // 赭石: warm wash on lit faces
 export const INDIGO = new THREE.Color("#5f7d92");   // 花青: cool wash in shadow
 export const SEAL_RED = new THREE.Color("#b8322a");
+export const SUN_GLOW = new THREE.Color("#efb48a"); // the warm wash the setting sun spreads (sky.js)
+
+// 设色: the colours things take on where colour has bloomed (app/colour.js).
+//   wash: what lit / pale areas turn toward   ink: what the dark ink turns toward
+const tint = (wash, ink, amount) => ({ wash: new THREE.Color(wash), ink: new THREE.Color(ink), amount });
+export const TINTS = {
+  foliage: tint("#a9c47f", "#24503a", 0.9),
+  wood: tint("#c09a6b", "#43301f", 0.55),
+  rock: tint("#cfae7f", "#33485a", 0.45),
+  ground: tint("#c9dca0", "#4d6e3c", 0.8),
+  water: tint("#a3cbc6", "#256478", 0.8),
+  mountain: tint("#86b596", "#2b5f95", 0.85), // 青绿 "blue-green landscape": malachite + azurite
+  blossom: tint("#f2a7b4", "#c41f3d", 1.0),
+};
 
 // Uniforms shared by every ink material (same object references, so updating
 // one value here updates every material).
 export const globals = {
   tField: { value: null },                       // InkField texture
+  tColour: { value: null },                      // colour-stage field (app/colour.js)
   uFieldRect: { value: new THREE.Vector4() },    // world rect the field covers
   uCam: { value: new THREE.Vector3() },
   uTime: { value: 0 },
@@ -22,6 +37,8 @@ export const globals = {
   uFarTint: { value: FAR_TINT },
   uOchre: { value: OCHRE },
   uIndigo: { value: INDIGO },
+  uSun: { value: new THREE.Vector3(0, 100, -700) }, // where the sun is (sky.js sets it)
+  uSunGlow: { value: SUN_GLOW },
 };
 
 const CHANNELS = {
@@ -76,10 +93,16 @@ const fragmentShader = /* glsl */ `
 
   uniform vec4 uChannel;
   uniform float uBias, uClimb, uNoiseScale, uNoiseAmp, uEdge, uRimW, uRim;
-  uniform float uNear, uFar, uMinFar, uDensity, uMist, uGrain, uSil, uWash, uDots;
+  uniform float uNear, uFar, uMinFar, uDensity, uMist, uMistBase, uGrain, uSil, uWash, uDots;
   uniform float uShade, uNeedles, uRagged;
   uniform float uSketchR, uSketch;
   uniform float uHoles;
+  uniform sampler2D tColour;
+  uniform vec4 uColourChannel;
+  uniform vec3 uTintWash, uTintInk;
+  uniform float uTint;
+  uniform vec3 uSun, uSunGlow;
+  uniform float uGlow;
   #ifdef DECAL
     uniform sampler2D uMap;
   #endif
@@ -148,7 +171,8 @@ const fragmentShader = /* glsl */ `
     float tex = mix(0.35, 1.0, stroke) * mix(0.7, 1.0, dry);
 
     // mist pools low; drifting cloud belts cut through the tall peaks
-    float mist = smoothstep(-0.5, uMist, vWorld.y + (blot - 0.5) * uMist * 0.8);
+    // (mistBase: where the mist is thickest; mist: the height it clears by)
+    float mist = smoothstep(uMistBase, uMist, vWorld.y + (blot - 0.5) * (uMist - uMistBase) * 0.8);
     float cloud = 0.0;
     if (uCloud.z > 0.0) {
       float drift = uTime * uCloud.w;
@@ -220,10 +244,30 @@ const fragmentShader = /* glsl */ `
     }
   #endif
 
+  #ifdef CLOUDS
+    {
+      // a sea of cloud below the rim: soft grey hollows in white paper, drifting. The billows
+      // are left bare on the side toward the sun, and shaded on the side away from it.
+      vec3 cp = vec3(vWorld.x * 0.015 + uTime * 0.004, 0.0, vWorld.z * 0.02);
+      float body = fbm3lo(cp);
+      vec2 sunward = normalize((uSun - vWorld).xz);
+      float slope = (fbm3lo(cp + vec3(sunward.x, 0.0, sunward.y) * 0.05) - body) * 14.0; // + facing the sun
+      float detail = fbm3(cp * 3.0 + vec3(0.0, uTime * 0.01, 0.0));
+      ink = smoothstep(0.3, 0.75, body) * (0.4 + 0.6 * detail) * 0.6;
+      ink = (ink * (1.0 - clamp(slope, 0.0, 1.0) * 0.7) + clamp(-slope, 0.0, 1.0) * 0.18) * wet;
+      air = 1.0; // it is the mist, so the ground mist doesn't fade it
+    }
+  #endif
+
   #ifdef WATERFALL
     {
       // falling water is left as bare paper: a few streaks racing down, darker rocky edges
-      // (vUv.x across the falls, vUv.y from the lip (0) to the foot (1))
+      // (vUv.x across the falls, vUv.y from the lip (0) to the foot (1)).
+      // Its sides fray and stream, and the water breaks over a ragged lip, so it never reads
+      // as a flat board standing in the ravine.
+      float fray = noise3(vec3(vUv.x * 5.0, vUv.y * 9.0 - uTime * 1.1, 1.7));
+      if (abs(vUv.x - 0.5) * 2.0 > 0.9 + (fray - 0.5) * 0.3) discard;
+      if (vUv.y < 0.03 + 0.05 * noise3(vec3(vUv.x * 6.0, 4.2, uTime * 0.2))) discard;
       float streaks = smoothstep(0.6, 0.9, noise3(vec3(vUv.x * 14.0, vUv.y * 3.0 - uTime * 1.6, 0.5)));
       float edge = smoothstep(0.3, 0.5, abs(vUv.x - 0.5));
       ink = (streaks * 0.55 + edge * 0.6) * wet + rim * uRim * 0.3;
@@ -254,6 +298,22 @@ const fragmentShader = /* glsl */ `
     vec3 washCol = mix(uIndigo, uOchre, smoothstep(0.35, 0.75, lit));
     vec3 base = mix(uPaper, washCol, uWash * 0.4 * wet * air * (1.0 - atm * 0.7));
     vec3 inkCol = mix(uInk, uFarTint, atm);
+
+    // 设色: colour blooms where you've stood still and looked (app/colour.js)
+    if (uTint > 0.0) {
+      vec4 cf = texture2D(tColour, (vWorld.xz - uFieldRect.xy) / uFieldRect.zw);
+      float cm = dot(cf, uColourChannel) + (blot - 0.5) * 0.4 + (fingers - 0.5) * 0.15;
+      float tint = smoothstep(0.0, 0.3, cm) * uTint;
+      base = mix(base, uTintWash, tint * 0.7 * mix(1.0, 0.55, atm));
+      inkCol = mix(inkCol, uTintInk, tint * 0.9);
+    }
+
+    // the setting sun warms the paper (mist, cloud) of whatever lies toward it
+    if (uGlow > 0.0) {
+      float toward = max(dot(normalize(vWorld - uCam), normalize(uSun - uCam)), 0.0);
+      base = mix(base, uSunGlow, pow(toward, 24.0) * uGlow);
+    }
+
     // alpha flags for the watercolour pass: 1 = inked object, 0 = ground/sky (no outline)
   #ifdef GROUND
     float flag = 0.0;
@@ -277,18 +337,24 @@ export function inkMaterial({
   reveal = "field",           // "field" | "global" (sky things that bloom in with the intro)
   variant = null,             // null | "ground" | "river" | "backdrop"
   bias = 0, climb = 0.03, noiseScale = 0.3, noiseAmp = 0.3, edge = 0.03, rimWidth = 0.08, rim = 0.6,
-  near = 8, far = 60, minFar = 0.3, density = 1, mist = 2, grain = 1, sil = 0.6, wash = 0, dots = 0,
+  near = 8, far = 60, minFar = 0.3, density = 1, mist = 2, mistBase = -0.5, grain = 1, sil = 0.6, wash = 0, dots = 0,
   shade = 0.4, needles = 0, ragged = 0, sway = 0,
   cloud = new THREE.Vector4(0, 1, 0, 0), flow = new THREE.Vector4(1, 0, 0, 0),
   sketch = true,              // line-drawn (白描) before the ink arrives; ignored for global/ground
   wiggle = 0, holes = 0,      // swimming koi; scholar's-rock holes
+  glow = 0,                   // how much the setting sun warms its paper when you look toward the sun
   washLit = null, washShade = null, // per-material colour wash (default ochre / indigo)
   map = null,                 // alpha texture for variant "decal"
+  // colour stage: a TINTS name ("foliage", "mountain", ...), "none", or { wash, ink, amount }.
+  // Default: plain ink things take on rock colours; already-coloured things keep theirs.
+  tint = undefined,
   color = INK, side = THREE.FrontSide,
 } = {}) {
   const defines = {};
   if (reveal === "global") defines.GLOBAL_REVEAL = "";
   if (variant) defines[variant.toUpperCase()] = "";
+  const tintName = tint ?? (color === INK && reveal !== "global" ? "rock" : "none");
+  const T = typeof tintName === "string" ? TINTS[tintName] : tintName; // undefined for "none"
 
   return new THREE.ShaderMaterial({
     vertexShader,
@@ -311,6 +377,7 @@ export function inkMaterial({
       uMinFar: { value: minFar },
       uDensity: { value: density },
       uMist: { value: mist },
+      uMistBase: { value: mistBase },
       uGrain: { value: grain },
       uSil: { value: sil },
       uWash: { value: wash },
@@ -321,9 +388,14 @@ export function inkMaterial({
       uSketch: { value: sketch && reveal !== "global" && variant !== "ground" && variant !== "decal" ? 1 : 0 },
       uWiggle: { value: wiggle },
       uHoles: { value: holes },
+      uGlow: { value: glow },
       ...(washLit ? { uOchre: { value: washLit } } : {}),
       ...(washShade ? { uIndigo: { value: washShade } } : {}),
       ...(map ? { uMap: { value: map } } : {}),
+      uTint: { value: T && reveal !== "global" ? T.amount : 0 },
+      uTintWash: { value: T ? T.wash : PAPER },
+      uTintInk: { value: T ? T.ink : INK },
+      uColourChannel: { value: channel === "far" ? CHANNELS.far : CHANNELS.mid },
       uSway: { value: sway },
       uCloud: { value: cloud },
       uFlow: { value: flow },

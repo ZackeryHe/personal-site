@@ -56,7 +56,18 @@ const fragmentShader = /* glsl */ `
 `;
 
 export class InkField {
-  constructor(renderer, { rect = new THREE.Vector4(...CONFIG.ink.fieldRect), resolution = CONFIG.ink.fieldResolution } = {}) {
+  /**
+   * reach / grow: [mid, far, ground] (metres / seconds). Defaults are the ink's;
+   * app/colour.js makes a second field with its own for the colour stage.
+   */
+  constructor(renderer, {
+    rect = new THREE.Vector4(...CONFIG.ink.fieldRect),
+    resolution = CONFIG.ink.fieldResolution,
+    reach = CONFIG.ink.reach,
+    grow = CONFIG.ink.grow,
+    quick = CONFIG.ink.quick,
+    dry = CONFIG.ink.dry,
+  } = {}) {
     this.renderer = renderer;
     this.rect = rect;
     this.target = new THREE.WebGLRenderTarget(resolution, resolution, {
@@ -82,10 +93,10 @@ export class InkField {
         uCount: { value: 0 },
         uTime: { value: 0 },
         uRect: { value: rect },
-        uReach: { value: new THREE.Vector4(...CONFIG.ink.reach, 1) },
-        uGrow: { value: new THREE.Vector4(...CONFIG.ink.grow, 1) }, // the slow opening bloom
-        uQuick: { value: CONFIG.ink.quick },
-        uDry: { value: CONFIG.ink.dry },
+        uReach: { value: new THREE.Vector4(...reach, 1) },
+        uGrow: { value: new THREE.Vector4(...grow, 1) },
+        uQuick: { value: quick },
+        uDry: { value: dry },
       },
     });
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
@@ -133,7 +144,15 @@ export class InkField {
     this.kinds[i] = kind;
     this.lastDropTime = Math.max(this.lastDropTime, time);
     this.dirty = true;
+    this.lastIndex = i; // so a caller can strengthen this drop later (setStrength)
     return true;
+  }
+
+  /** Change how far a drop reaches (0–1), e.g. a colour bloom filling in while you look. */
+  setStrength(i, strength) {
+    const quick = this.drops[i].w >= 9.5;
+    this.drops[i].w = strength + (quick ? 10 : 0);
+    this.dirty = true;
   }
 
   update(time) {

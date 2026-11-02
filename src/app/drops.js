@@ -4,7 +4,7 @@ import { globals, INK } from "../ink/material.js";
 
 // The ink: the opening drop, ink falling from where you stand as you walk (and
 // thrown ahead when you hurry), and drops you flick by clicking the ground.
-export function createDrops({ field, scene, camera, walker, world, instant = false }) {
+export function createDrops({ field, scene, camera, walker, world, instant = false, onFlick = null }) {
   const { path, pathLen } = world;
   const C = CONFIG.ink;
   const I = CONFIG.intro;
@@ -36,6 +36,7 @@ export function createDrops({ field, scene, camera, walker, world, instant = fal
     if (!ray.ray.intersectPlane(ground, hit)) return; // clicked the sky
     if (hit.distanceTo(camera.position) > 160) return;
     land(hit.x, hit.z, C.flick, "flick");
+    onFlick?.(hit.x, hit.z, e);
   });
 
   return {

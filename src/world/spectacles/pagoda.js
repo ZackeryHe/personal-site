@@ -4,7 +4,7 @@ import { peakGeometry, mountainMaterial } from "../landscape/mountains.js";
 import { roofGeometry } from "../structures/structures.js";
 import { farInk } from "./common.js";
 
-// 远塔 — a seven-storey pagoda on top of a far hill.
+// 远塔 — a pagoda on a knoll at the canyon's rim, beside the pavilion.
 export function build({ scene, places, rng }) {
   const rand = rng(83);
   const P = places.pagoda;
@@ -12,7 +12,7 @@ export function build({ scene, places, rng }) {
 
   const parts = [];
   let y = P.h - 2 - 0.5; // just below the summit
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < (P.tiers ?? 7); i++) {
     const w = 2.3 - i * 0.22;
     parts.push(new THREE.CylinderGeometry(w * 0.8, w * 0.85, 1.25, 8).translate(0, y + 0.625, 0));
     parts.push(roofGeometry(w + 0.45, 0.55, 0.3).translate(0, y + 1.2, 0));
@@ -26,5 +26,4 @@ export function build({ scene, places, rng }) {
   pagoda.position.set(P.pos.x, 0, P.pos.z);
   scene.add(pagoda);
 
-  P.anchor = new THREE.Vector3(P.pos.x + 9, P.h + 4, P.pos.z); // its name floats beside the pagoda
 }

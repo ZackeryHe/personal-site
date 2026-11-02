@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { SITE } from "../content.js";
 import { STOPS } from "../world/places.js";
 
-// HTML overlay: section text and view names that bleed in like ink, plus
-// clickable markers on the progress line.
+// HTML overlay: your points' panels and markers, which bleed in like ink, plus the
+// progress line and the occasional hint.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 let defs = null;
@@ -71,35 +71,47 @@ function inkBleed(el) {
 
 const ease = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const pointById = (id) => SITE.points.find((p) => p.id === id);
 
-/** Build one section's HTML from src/content.js. */
-function sectionElement(s) {
+/** Build one panel's HTML from a point in src/content.js. */
+function panelElement(p) {
   const el = document.createElement("section");
   el.className = "station";
-  if (s.titleCard) {
+  if (p.titleCard) {
     el.innerHTML = `<div class="seal"></div><h1></h1><p class="hint"></p>`;
     el.querySelector(".seal").textContent = SITE.initials;
     el.querySelector("h1").textContent = SITE.name;
     el.querySelector(".hint").textContent = SITE.hint;
   } else {
     el.innerHTML = `<h2><span class="zh"></span> <span class="heading"></span></h2><div class="body"></div>`;
-    el.querySelector(".zh").textContent = s.zh || "";
-    el.querySelector(".heading").textContent = s.heading || s.label;
-    el.querySelector(".body").innerHTML = s.body || ""; // your own HTML: links etc.
+    el.querySelector(".zh").textContent = p.zh || "";
+    el.querySelector(".heading").textContent = p.heading || p.label;
+    el.querySelector(".body").innerHTML = p.body || ""; // your own HTML: links etc.
   }
   return el;
 }
 
+/**
+ * Panels that write themselves in at each stop, and the progress line's dots: one for each
+ * point with a panel (a body), or with a stop of its own in world/places.js (e.g. Contacts).
+ */
 export function createUI({ onJump }) {
   const container = document.getElementById("stations");
-  const stations = SITE.sections.map((s) => {
-    if (!(s.stop in STOPS)) console.warn(`content.js: unknown stop "${s.stop}" (see STOPS in world/places.js)`);
-    const el = sectionElement(s);
-    container.appendChild(el);
-    return { el, at: STOPS[s.stop] ?? 0, label: s.label, set: inkBleed(el) };
-  });
+  const stations = SITE.points
+    .filter((p) => p.titleCard || p.body || p.id in STOPS)
+    .map((p) => {
+      if (!(p.id in STOPS)) console.warn(`content.js: point "${p.id}" has no stop in world/places.js`);
+      const station = { at: STOPS[p.id] ?? 0, label: p.label };
+      if (p.titleCard || p.body) {
+        station.el = panelElement(p);
+        container.appendChild(station.el);
+        station.set = inkBleed(station.el);
+      }
+      return station;
+    });
+  const panels = stations.filter((s) => s.el);
 
-  // Markers on the progress line: click to walk there
+  // dots on the progress line: click to walk there
   const bar = document.getElementById("progress");
   for (const s of stations) {
     const m = document.createElement("button");
@@ -118,9 +130,9 @@ export function createUI({ onJump }) {
   return {
     /** introText: 0 → 1 as the name first writes itself in */
     update(progress, introText) {
-      for (const [i, s] of stations.entries()) {
+      for (const s of panels) {
         let k = clamp01((1 - Math.abs(progress - s.at) / 0.07) * 1.6);
-        if (i === 0) k = Math.min(k, introText);
+        if (s === panels[0]) k = Math.min(k, introText); // the title card waits for the opening
         s.set(ease(k));
       }
       dot.style.top = `calc(${(progress * 100).toFixed(2)}% - 4px)`;
@@ -128,41 +140,60 @@ export function createUI({ onJump }) {
   };
 }
 
+/** A quiet hint at the bottom of the screen that writes itself in and out. */
+export function createHint(text) {
+  const el = document.createElement("div");
+  el.className = "still-hint";
+  el.textContent = text;
+  document.body.appendChild(el);
+  const set = inkBleed(el);
+  let k = 0;
+  return {
+    update(show, dt) {
+      k += ((show ? 1 : 0) - k) * Math.min(1, dt * (show ? 1.2 : 4));
+      set(k < 0.01 ? 0 : k > 0.99 ? 1 : ease(k));
+    },
+  };
+}
+
 /**
- * Poetic names for the garden's views, floating beside them in the world.
- * views: [{ zh, en, pos: Vector3, radius, minDist?, far? }] (see VIEWS in world/places.js)
+ * Your points' markers, floating beside the things that stand for them
+ * (world.markers, from MARKERS in world/places.js; text and links from content.js).
  */
-export function createViewLabels(views) {
-  const layer = document.getElementById("views");
-  const items = views.map((v) => {
-    const el = document.createElement("div");
-    el.className = v.far ? "view-label far" : "view-label";
-    el.innerHTML = `<span class="zh"></span><span class="en"></span>`;
-    el.querySelector(".zh").textContent = v.zh;
-    el.querySelector(".en").textContent = v.en;
+export function createMarkers(markers) {
+  const layer = document.getElementById("markers");
+  const items = markers.map((m) => {
+    const p = pointById(m.id) || { label: m.id };
+    const el = document.createElement(p.href ? "a" : "div");
+    el.className = p.href ? "marker-label link" : "marker-label";
+    if (p.href) {
+      el.href = p.href;
+      el.target = "_blank";
+      el.rel = "noopener";
+      el.addEventListener("click", (e) => e.stopPropagation()); // following a link isn't an ink flick
+    }
+    el.innerHTML = `${p.zh ? '<span class="zh"></span>' : ""}<span class="en"></span>`;
+    if (p.zh) el.querySelector(".zh").textContent = p.zh;
+    el.querySelector(".en").textContent = p.label + (p.href ? " ↗" : "");
     layer.appendChild(el);
-    return { v, el, set: inkBleed(el) };
+    return { m, el, set: inkBleed(el) };
   });
-  const p = new THREE.Vector3();
+  const v = new THREE.Vector3();
 
   return {
     update(camera, intro) {
-      for (const { v, el, set } of items) {
-        const d = camera.position.distanceTo(v.pos);
-        // near views fade in over the outer third of their radius; far ones over the last 20 m
-        let k = 1 - THREE.MathUtils.smoothstep(d, v.far ? v.radius - 20 : v.radius * 0.65, v.radius);
-        if (v.minDist) k *= THREE.MathUtils.smoothstep(d, v.minDist * 0.85, v.minDist);
-        p.copy(v.pos).project(camera);
-        const onScreen = p.z < 1 && Math.abs(p.x) < 0.92 && Math.abs(p.y) < 0.92;
+      for (const { m, el, set } of items) {
+        const d = camera.position.distanceTo(m.pos);
+        let k = 1 - THREE.MathUtils.smoothstep(d, m.radius * 0.65, m.radius);
+        v.copy(m.pos).project(camera);
+        const onScreen = v.z < 1 && Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95;
         k = onScreen ? k * intro : 0;
-        // far-off spectacles only name themselves when you turn to look at them
-        if (v.far) k *= 1 - THREE.MathUtils.smoothstep(Math.abs(p.x), 0.45, 0.8);
         set(ease(clamp01(k)));
+        el.style.pointerEvents = k > 0.5 ? "auto" : "none";
         if (k > 0) {
-          const x = (p.x * 0.5 + 0.5) * innerWidth;
-          const y = (-p.y * 0.5 + 0.5) * innerHeight;
-          // near names sit above their anchor; far ones are centred beside the spectacle
-          el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, ${v.far ? "-50%" : "-100%"})`;
+          const x = (v.x * 0.5 + 0.5) * innerWidth;
+          const y = (-v.y * 0.5 + 0.5) * innerHeight;
+          el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
         }
       }
     },

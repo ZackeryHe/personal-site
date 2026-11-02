@@ -1,91 +1,143 @@
 import * as THREE from "three";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 import { inkMaterial, SEAL_RED } from "../../ink/material.js";
 import { SITE } from "../../content.js";
+import { noise3 } from "../random.js";
 
-/** Lumpy rock: displaced icosphere, displacement keyed by position so it stays watertight. */
+/**
+ * Lumpy rock: an icosphere swollen and dented by smooth noise. Its vertices are shared
+ * (indexed), so it shades as one rounded, weathered surface rather than flat triangles.
+ * Returns the geometry and the noise, for further shaping (call computeVertexNormals after).
+ */
 export function lumpyRock(rand, detail, amount) {
-  const g = new THREE.IcosahedronGeometry(1, detail);
+  const g = smoothSphere(detail);
+  const n = noise3(rand);
+  const o = [rand() * 50, rand() * 50, rand() * 50];
   const pos = g.attributes.position;
-  const bumps = new Map();
-  const f = [rand.range(1, 3), rand.range(1, 3), rand.range(1, 3), rand() * 6, rand() * 6];
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    const key = [x, y, z].map((v) => Math.round(v * 1000) + 0).join(",");
-    if (!bumps.has(key)) {
-      const smooth = Math.sin(x * f[0] + f[3]) * Math.sin(y * f[1]) * Math.sin(z * f[2] + f[4]);
-      bumps.set(key, 1 + amount * (0.6 * smooth + 0.4 * (rand() - 0.5)));
-    }
-    const b = bumps.get(key);
+    const lumps = 0.65 * n(x * 1.1 + o[0], y * 1.1 + o[1], z * 1.1 + o[2])
+                + 0.35 * n(x * 2.6 + o[1], y * 2.6 + o[2], z * 2.6 + o[0]);
+    const b = 1 + amount * 1.1 * lumps;
     pos.setXYZ(i, x * b, y * b, z * b);
   }
+  g.computeVertexNormals();
+  g.userData.noise = n;
   return g;
 }
 
-// Name lettering for the entrance rock: carved serif capitals painted red, plus a seal.
-function nameTexture() {
+/** An icosphere with shared vertices (and a blank uv, which the ink material reads). */
+function smoothSphere(detail) {
+  const base = new THREE.IcosahedronGeometry(1, detail);
+  base.deleteAttribute("normal");
+  base.deleteAttribute("uv");
+  const g = mergeVertices(base);
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+  return g;
+}
+
+/**
+ * Lettering carved into a rock and painted red: serif text, optionally followed by a
+ * seal (a filled square with letters knocked out). Returns an alpha texture.
+ */
+function carvedTexture(text, { size = 150, seal = null, width = 1024, height = 384 } = {}) {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 384;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   const tex = new THREE.CanvasTexture(canvas);
   const draw = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = "#fff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = '600 150px "Cormorant Garamond", Georgia, serif';
-    ctx.fillText(SITE.name, 450, 190);
-    // seal: a filled square with the initials knocked out
-    ctx.fillRect(850, 120, 130, 130);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.font = '700 64px "Cormorant Garamond", Georgia, serif';
-    ctx.fillText(SITE.initials, 915, 188);
-    ctx.globalCompositeOperation = "source-over";
+    ctx.font = `600 ${size}px "Cormorant Garamond", Georgia, serif`;
+    ctx.fillText(text, seal ? width * 0.44 : width / 2, height / 2);
+    if (seal) {
+      const s = height * 0.34;
+      const x = width * 0.83;
+      ctx.fillRect(x, height / 2 - s / 2, s, s);
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.font = `700 ${Math.round(s * 0.5)}px "Cormorant Garamond", Georgia, serif`;
+      ctx.fillText(seal, x + s / 2, height / 2 - 2);
+      ctx.globalCompositeOperation = "source-over";
+    }
     tex.needsUpdate = true;
   };
   draw();
-  document.fonts?.load('600 150px "Cormorant Garamond"').then(draw).catch(() => {});
+  document.fonts?.load(`600 ${size}px "Cormorant Garamond"`).then(draw).catch(() => {});
   return tex;
 }
 
-// The entrance boulder with your name, and the scholar's rocks around the garden.
+/** A boulder with a flattened face toward +z, so lettering can sit on it. */
+function faceRock(rand, detail = 3) {
+  const g = lumpyRock(rand, detail, 0.22);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i);
+    if (z > 0.4) pos.setZ(i, 0.4 + (z - 0.4) * 0.05);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+const rockInk = () => inkMaterial({
+  channel: "mid", climb: 0.04, noiseScale: 0.5, noiseAmp: 0.3, near: 4, far: 50,
+  density: 0.85, mist: 0.6, grain: 1.4, shade: 0.25, sil: 0.9, wash: 0.8,
+});
+const letteringInk = (map) => inkMaterial({
+  variant: "decal", channel: "mid", bias: 0.05, climb: 0.02, noiseScale: 0.8, noiseAmp: 0.25,
+  near: 4, far: 50, density: 0.9, mist: 0.01, grain: 2, sil: 0, color: SEAL_RED, map,
+});
+
+/**
+ * A carved rock: boulder scaled to `scale` (x, y, z radii), lettering across its face,
+ * placed at pos and turned to face `faces`.
+ */
+function carvedRock(scene, rand, { pos, faces, scale, text, textOpts, plate, turn = 0 }) {
+  const g = new THREE.Group();
+  const boulder = new THREE.Mesh(faceRock(rand), rockInk());
+  boulder.scale.set(...scale);
+  boulder.position.y = scale[1] * 0.77;
+  g.add(boulder);
+  const lettering = new THREE.Mesh(new THREE.PlaneGeometry(...plate), letteringInk(carvedTexture(text, textOpts)));
+  lettering.position.set(0, scale[1] * 0.83, 0.44 * scale[2] + 0.02); // just proud of the flattened face
+  g.add(lettering);
+  g.position.copy(pos);
+  g.rotation.y = Math.atan2(faces.x - pos.x, faces.z - pos.z) + turn;
+  scene.add(g);
+  return { group: g, lettering };
+}
+
+// The entrance: a boulder with your name; by the lotus pond, smaller ones for GitHub,
+// LinkedIn and Email (click them); and the scholar's rocks around the garden.
 export function build({ scene, P, places, rng }) {
   const rand = rng(81);
-
-  // ---------- Entrance: a boulder with your name, facing you as you arrive ----------
-  const rockGeo = lumpyRock(rand, 3, 0.22);
-  {
-    // flatten the front so the lettering sits on a face
-    const pos = rockGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const z = pos.getZ(i);
-      if (z > 0.4) pos.setZ(i, 0.4 + (z - 0.4) * 0.05);
-    }
-    rockGeo.computeVertexNormals();
-  }
-  const entrance = new THREE.Group();
-  const boulder = new THREE.Mesh(rockGeo, inkMaterial({
-    channel: "mid", climb: 0.04, noiseScale: 0.5, noiseAmp: 0.3, near: 4, far: 50,
-    density: 0.85, mist: 0.6, grain: 1.4, shade: 0.25, sil: 0.9, wash: 0.8,
-  }));
-  boulder.scale.set(2.1, 1.5, 1.15);
-  boulder.position.y = 1.15;
-  entrance.add(boulder);
-  const lettering = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.6, 0.975),
-    inkMaterial({
-      variant: "decal", channel: "mid", bias: 0.05, climb: 0.02, noiseScale: 0.8, noiseAmp: 0.25,
-      near: 4, far: 50, density: 0.9, mist: 0.01, grain: 2, sil: 0, color: SEAL_RED,
-      map: nameTexture(),
-    })
-  );
-  lettering.position.set(0, 1.25, 0.44 * 1.15 + 0.02); // just proud of the flattened face
-  entrance.add(lettering);
-  const rock = places.rock.pos;
   const start = P.at(0);
-  entrance.position.copy(rock);
-  entrance.rotation.y = Math.atan2(start.x - rock.x, start.z - rock.z) - 0.25;
-  scene.add(entrance);
+
+  carvedRock(scene, rand, {
+    pos: places.rock.pos, faces: start, turn: -0.25,
+    scale: [2.1, 1.5, 1.15], plate: [2.6, 0.975], text: SITE.name, textOpts: { seal: SITE.initials },
+  });
+
+  // Contacts: smaller rocks on the pond's near shore, carved with their names. Clicking one opens it.
+  places.clickables = [];
+  for (const l of places.links) {
+    const point = SITE.points.find((p) => p.id === l.id);
+    if (!point) continue;
+    const { group, lettering } = carvedRock(scene, rand, {
+      pos: l.pos, faces: P.at(P.nearestT(l.pos.x, l.pos.z) - 0.05, 0), turn: rand.range(-0.1, 0.1), // toward you as you come
+      scale: [0.7, 0.42, 0.45], plate: [1.08, 0.34],
+      text: `${point.label} ↗`, textOpts: { size: 190, width: 1024, height: 320 },
+    });
+    const density = lettering.material.uniforms.uDensity;
+    places.clickables.push({
+      object: group,
+      href: point.href,
+      label: point.label,
+      hover: (on) => (density.value = on ? 1.3 : 0.9), // the lettering darkens under the brush
+    });
+  }
 
   // ---------- Scholar's rocks (太湖石): tall, twisted, weathered through with holes ----------
   const taihuMat = inkMaterial({
@@ -94,12 +146,16 @@ export function build({ scene, P, places, rng }) {
     side: THREE.DoubleSide,
   });
   for (const { pos: p, h } of places.taihu) {
-    const g = lumpyRock(rand, 4, 0.35);
+    const g = lumpyRock(rand, 5, 0.42);
+    const n = g.userData.noise;
     const pos = g.attributes.position;
     const twist = rand.range(-0.6, 0.6);
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const waist = 0.75 + 0.35 * Math.abs(y); // narrower in the middle, top-heavy
+      // wrinkled (皱): soft creases worn into it, running mostly up and down
+      const crease = 1 - Math.abs(n(x * 2.2 + 9, y * 0.9, z * 2.2 - 4));
+      const worn = 1 - 0.22 * crease ** 4;
+      const waist = (0.75 + 0.35 * Math.abs(y)) * worn; // narrower in the middle, top-heavy
       pos.setXYZ(i, x * waist + Math.sin(y * 2.2) * 0.25, y, z * waist + twist * y * 0.3);
     }
     g.computeVertexNormals();

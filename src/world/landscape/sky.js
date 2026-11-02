@@ -1,9 +1,56 @@
 import * as THREE from "three";
-import { inkMaterial, SEAL_RED } from "../../ink/material.js";
+import { inkMaterial, globals } from "../../ink/material.js";
+import { noise2 } from "../../ink/noise.js";
 
-// Distant layered ranges, a pale vermilion sun, and a few birds.
+// 红日 — the setting sun over the canyon: a disc of vermilion laid in wet, deeper where the
+// pigment pooled at its rim, a warm wash spreading out across the sky around it (wider than
+// tall, fading to bare paper), and long bands of cloud drifting across it.
+const sunShader = {
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform vec3 uPaper, uInk, uRed, uRedDeep, uSunGlow;
+    uniform float uIntro, uTime;
+    uniform vec2 uSize; // the billboard's half-size, in sun radii
+    varying vec2 vUv;
+    ${noise2}
+    void main() {
+      vec2 q = (vUv * 2.0 - 1.0) * uSize; // in sun radii, 0 at its centre
+      float r = length(q);
+
+      // the glow: strongest around the disc, and a broad warm band along the horizon
+      float glow = exp(-max(r - 1.0, 0.0) * 1.15) * 0.62 + exp(-length(q * vec2(0.3, 1.1)) * 0.75) * 0.42;
+      glow *= 0.8 + 0.4 * fbm2(q * 0.8 + vec2(uTime * 0.008, 3.0)); // broken, like a wash
+      vec2 edge = abs(vUv * 2.0 - 1.0);
+      glow *= (1.0 - smoothstep(0.55, 1.0, edge.x)) * (1.0 - smoothstep(0.5, 1.0, edge.y)); // to bare paper at its edges
+      vec3 col = mix(uPaper, uSunGlow, clamp(glow, 0.0, 1.0));
+
+      // the disc: a wet edge, mottled pigment, lighter and warmer in the middle
+      float rr = r + (fbm2(q * 2.4 + 7.0) - 0.5) * 0.05;
+      float disc = 1.0 - smoothstep(0.975, 1.02, rr);
+      float mottle = fbm2(q * 3.0 + 2.0) - 0.5;
+      vec3 red = mix(uRed, uRedDeep, clamp(smoothstep(0.15, 1.0, rr) * 0.8 + mottle * 0.35, 0.0, 1.0));
+      red = mix(red, uRedDeep * 0.82, exp(-pow((1.0 - rr) / 0.06, 2.0)) * 0.55); // pooled at the rim
+      col = mix(col, red, disc);
+
+      // bands of cloud drifting across it: a long one low across the disc, a thin one higher up
+      float b1 = (q.y + 0.4 + sin(q.x * 1.1 + uTime * 0.03) * 0.07) / 0.12;
+      float b2 = (q.y - 0.16 + sin(q.x * 0.8 + 2.0 + uTime * 0.025) * 0.05) / 0.05;
+      float bands = exp(-b1 * b1) * smoothstep(0.35, 0.65, fbm2(q * vec2(1.1, 4.0) + vec2(uTime * 0.02, 1.0)))
+                  + exp(-b2 * b2) * smoothstep(0.45, 0.7, fbm2(q * vec2(1.5, 6.0) + vec2(uTime * 0.015, 5.0))) * 0.65;
+      bands *= 1.0 - smoothstep(1.3, 3.4, abs(q.x)); // thinning out away from the sun
+      col = mix(col, uInk, clamp(bands * mix(0.22, 0.45, disc), 0.0, 1.0));
+
+      gl_FragColor = vec4(mix(uPaper, col, uIntro), 1.0);
+    }
+  `,
+};
+
+// Distant layered ranges, the red sun, and a few birds.
 // These bloom in with the opening drop (global reveal) instead of the ink field.
-export function build({ scene, rng }) {
+export function build({ scene, places, rng }) {
   const rand = rng(51);
   const center = new THREE.Vector3(2, 0, -62); // middle of the walk
 
@@ -14,6 +61,13 @@ export function build({ scene, rng }) {
     { radius: 430, base: 40, amp: 95, density: 0.22 },
     { radius: 540, base: 60, amp: 120, density: 0.13 },
   ];
+  // toward the sun the ridgelines sink into a broad, level saddle for it to set behind, with
+  // higher shoulders either side framing it at the far end of the canyon
+  const sunAt = Math.atan2(places.sun.pos.z - center.z, places.sun.pos.x - center.x);
+  const saddle = (a) => {
+    const d = Math.abs(Math.atan2(Math.sin(a - sunAt), Math.cos(a - sunAt)));
+    return 1 - 0.55 * Math.exp(-((d / 0.24) ** 4)) + 0.3 * Math.exp(-(((d - 0.38) / 0.12) ** 2));
+  };
   for (const L of layers) {
     const ridge = periodicNoise(rand, [6, 13, 29, 61], [1, 0.5, 0.22, 0.1]);
     const N = 480;
@@ -25,7 +79,7 @@ export function build({ scene, rng }) {
       const a = u * Math.PI * 2;
       const x = center.x + Math.cos(a) * L.radius;
       const z = center.z + Math.sin(a) * L.radius;
-      const top = L.base + L.amp * Math.pow(ridge(u), 1.7);
+      const top = (L.base + L.amp * Math.pow(ridge(u), 1.7)) * saddle(a);
       positions.push(x, -30, z, x, top, z);
       uvs.push(u, 0, u, 1);
       if (i < N) {
@@ -42,21 +96,33 @@ export function build({ scene, rng }) {
       reveal: "global", variant: "backdrop", climb: 0, noiseScale: 0.01, noiseAmp: 0.25,
       edge: 0.02, rimWidth: 0.05, rim: 0.35, near: 2000, far: 3000, density: L.density,
       mist: 45, grain: 0.02, sil: 0, color: new THREE.Color("#3f5566"), side: THREE.DoubleSide,
-      cloud: new THREE.Vector4(L.base + 10, 10, 0.7, 0.6),
+      cloud: new THREE.Vector4(L.base + 10, 10, 0.7, 0.6), glow: 0.75,
     }));
     mesh.frustumCulled = false;
     scene.add(mesh);
   }
 
-  // ---------- Pale vermilion sun, low over the end of the path ----------
+  // ---------- A huge red sun, setting over the canyon at the end of the walk ----------
+  const S = places.sun;
+  globals.uSun.value.copy(S.pos); // the mist and the sea of cloud toward it glow warm
+  const size = [6.2, 3.2]; // the billboard's half-size in sun radii: room for the glow along the horizon
   const sun = new THREE.Mesh(
-    new THREE.CircleGeometry(34, 64),
-    inkMaterial({
-      reveal: "global", climb: 0, noiseScale: 0.05, noiseAmp: 0.3, rim: 0.4, rimWidth: 0.06,
-      near: 2000, far: 3000, density: 0.55, mist: 0.01, grain: 0.06, sil: 0, color: SEAL_RED,
+    new THREE.PlaneGeometry(S.r * 2 * size[0], S.r * 2 * size[1]),
+    new THREE.ShaderMaterial({
+      ...sunShader,
+      uniforms: {
+        uPaper: globals.uPaper,
+        uSunGlow: globals.uSunGlow,
+        uInk: { value: new THREE.Color("#5d5560") },
+        uRed: { value: new THREE.Color("#dc5f3c") },
+        uRedDeep: { value: new THREE.Color("#b5332a") },
+        uIntro: globals.uIntro,
+        uTime: globals.uTime,
+        uSize: { value: new THREE.Vector2(...size) },
+      },
     })
   );
-  sun.position.set(60, 120, -520);
+  sun.position.copy(S.pos);
   scene.add(sun);
 
   // ---------- Birds circling ahead ----------

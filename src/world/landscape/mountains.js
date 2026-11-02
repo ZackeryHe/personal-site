@@ -42,7 +42,7 @@ export function mountainMaterial(overrides = {}) {
   return inkMaterial({
     channel: "far", climb: 0.004, noiseScale: 0.03, noiseAmp: 0.3, edge: 0.015,
     rimWidth: 0.05, rim: 0.5, near: 40, far: 320, minFar: 0.22, density: 0.9, mist: 18,
-    grain: 0.12, wash: 1, dots: 0.9,
+    grain: 0.12, wash: 1, dots: 0.9, tint: "mountain",
     cloud: new THREE.Vector4(30, 6, 0.85, 1),
     ...overrides,
   });
@@ -53,13 +53,15 @@ export function mountainMaterial(overrides = {}) {
 export function build({ scene, P, rng }) {
   const rand = rng(23);
   const geos = [];
-  for (let i = 0; i < 44; i++) {
+  for (let i = 0; i < 60; i++) {
     const x = rand.range(-170, 170);
-    const z = rand.range(-280, 30);
+    const z = rand.range(-150, 40);
     const r = rand.range(14, 32);
     const h = rand.range(28, 85);
-    // stay off the path, and out of the garden's spots and the sight lines to the spectacles
-    if (P.distToPath(x, z) < 40 || P.blocked(x, z, { by: "mountains", pad: r * 1.2 })) continue;
+    // stay off the path, on solid ground (the canyon has its own pillars, see spectacles/vista.js),
+    // and out of the garden's spots and the sight line to the waterfall
+    if (P.distToPath(x, z) < 40 || P.cliffDist(x, z) > -r * 1.3) continue;
+    if (P.blocked(x, z, { by: "mountains", pad: r * 1.2 })) continue;
     geos.push(peakGeometry(rand, x, z, r, h));
     // shoulders around the main peak
     const shoulders = 1 + Math.floor(rand() * 3);

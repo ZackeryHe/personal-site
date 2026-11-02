@@ -2,61 +2,105 @@ import * as THREE from "three";
 import { inkMaterial } from "../../ink/material.js";
 import { STOPS } from "../places.js";
 
-// Pines in the painted style: a bent trunk, short branches, and flat "cloud"
-// pads of needles. Everything is instanced (3 draw calls for the whole forest).
+// Trees in the painted style: a bent trunk, branches angled up then out, and wide flat
+// "cloud" pads of needles, darker beneath. (Instanced: a few draw calls for all of them.)
+// Every tree is painted the same way, in ink. Some of them are turning: where colour blooms
+// (设色, app/colour.js) their pads take on autumn colours instead of green, from fresh green
+// through gold to orange and red, more autumnal the further you walk.
+
+const UP = new THREE.Vector3(0, 1, 0);
+
+// the turning trees' colours (the colour stage's tint): [wash on lit pads, the ink turns toward]
+const AUTUMN = [
+  ["#b3c47a", "#3f5a28"], // yellow-green
+  ["#e0c060", "#7a5a12"], // gold
+  ["#eba04e", "#8c4a14"], // orange
+  ["#e4794a", "#8a2e12"], // red-orange
+  ["#d65a45", "#7a1f16"], // red
+].map(([wash, ink]) => ({ wash: new THREE.Color(wash), ink: new THREE.Color(ink), amount: 1 }));
+
 export function build({ scene, P, rng }) {
   const rand = rng(37);
-  const UP = new THREE.Vector3(0, 1, 0);
+  const ok = (x, z, near = 4) => !(P.distToPath(x, z) < near || P.blocked(x, z) || P.overCliff(x, z, 2));
 
-  // ---------- Where the trees go ----------
+  // ---------- where the trees go ----------
   const trees = [];
-  const plant = (x, z, h) => {
-    if (P.distToPath(x, z) < 4 || P.blocked(x, z)) return;
-    trees.push({ x, z, h, yaw: rand() * Math.PI * 2, sc: rand.range(0.8, 1.25) });
-  };
-  for (let i = 0; i < 120; i++) {
+  const turning = [];
+  for (let i = 0; i < 100; i++) {
     const t = rand();
     const off = rand.range(4.5, 24) * (rand() < 0.5 ? -1 : 1);
     const p = P.path.getPointAt(t).addScaledVector(P.sideAt(t), off);
-    plant(p.x, p.z, rand.range(4.5, 9.5));
+    if (!ok(p.x, p.z)) continue;
+    // more turning trees further along, and in the open
+    if (rand() < 0.15 + t * 0.35) turning.push({ x: p.x, z: p.z, t });
+    else trees.push({ x: p.x, z: p.z, h: rand.range(5, 10) });
   }
-  // a denser grove around the About station
-  for (let i = 0; i < 30; i++) {
-    const t = STOPS.about + rand.range(-0.06, 0.06);
-    const off = rand.range(4, 12) * (rand() < 0.5 ? -1 : 1);
-    const p = P.path.getPointAt(t).addScaledVector(P.sideAt(t), off);
-    plant(p.x, p.z, rand.range(6, 11));
+  // a few behind the garden walls around the tablets, not crowding them
+  for (let i = 0; i < 10; i++) {
+    const t = STOPS.grove + rand.range(-0.07, 0.07);
+    const p = P.path.getPointAt(t).addScaledVector(P.sideAt(t), rand.range(9, 18) * (rand() < 0.5 ? -1 : 1));
+    if (ok(p.x, p.z, 8)) trees.push({ x: p.x, z: p.z, h: rand.range(7, 11) });
+  }
+  // the turning trees: size and colour from their own stream, so the layout above stays put
+  const r2 = rng(38);
+  for (const { x, z, t } of turning) {
+    const k = Math.round(t * (AUTUMN.length - 0.6) + r2.range(-0.8, 0.8));
+    trees.push({ x, z, h: r2.range(5, 9), autumn: Math.max(0, Math.min(AUTUMN.length - 1, k)) });
   }
 
-  // ---------- Shared geometry ----------
-  // Trunk: unit height, base at y=0, with an S-bend baked in (world units).
-  const bend = (y) => 0.5 * Math.sin(y * 2.4) - 0.25 * y;
-  const trunkGeo = new THREE.CylinderGeometry(0.15, 0.32, 1, 7, 10).translate(0, 0.5, 0);
+  addTrees(scene, trees, rand);
+}
+
+// ---------------------------------------------------------------- trees
+function addTrees(scene, spots, rand) {
+  // trunk: unit height, base at y=0, a gentle S-bend baked in, flaring at the foot
+  const bend = (y) => 0.45 * Math.sin(y * 2.4) - 0.2 * y;
+  const trunkGeo = new THREE.CylinderGeometry(0.13, 0.3, 1, 8, 12).translate(0, 0.5, 0);
   {
     const pos = trunkGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) + bend(pos.getY(i)));
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      const flare = 1 + 0.6 * Math.max(0, 0.12 - y) / 0.12;
+      pos.setXYZ(i, pos.getX(i) * flare + bend(y), y, pos.getZ(i) * flare);
+    }
     trunkGeo.computeVertexNormals();
   }
-  const branchGeo = new THREE.CylinderGeometry(0.5, 1, 1, 4).translate(0, 0.5, 0);
-  const padGeo = new THREE.IcosahedronGeometry(1, 1);
+  const branchGeo = new THREE.CylinderGeometry(0.5, 1, 1, 5).translate(0, 0.5, 0);
+  const padGeo = new THREE.IcosahedronGeometry(1, 2);
+  {
+    // a cloud of needles: lumpy and irregular all round, domed on top, flat underneath
+    const pos = padGeo.attributes.position;
+    const lumps = new Map(); // keyed by position so shared vertices move together
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const key = [x, y, z].map((v) => Math.round(v * 1000) + 0).join(",");
+      if (!lumps.has(key)) {
+        const a = Math.atan2(z, x);
+        lumps.set(key, 1 + 0.22 * Math.sin(a * 5 + y * 3) + 0.12 * Math.sin(a * 11 - y * 5) + (rand() - 0.5) * 0.18);
+      }
+      const k = lumps.get(key);
+      pos.setXYZ(i, x * k, (y > 0 ? y : y * 0.35) * (0.8 + 0.2 * k), z * k);
+    }
+    padGeo.computeVertexNormals();
+  }
 
   const woodMat = inkMaterial({
     channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
-    near: 5, far: 50, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004,
+    near: 5, far: 55, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood",
   });
-  // dark needle masses: little shading, ragged needle-tip edges
-  const padMat = inkMaterial({
+  // needle pads: the same ink for every tree; only what colour they turn when colour
+  // blooms differs (evergreen: green; the turning trees: their autumn shade)
+  const padMat = (tint) => inkMaterial({
     channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
-    near: 6, far: 55, density: 1.3, mist: 1.5, grain: 2.2, sil: 0.5, shade: 0.75,
-    ragged: 0.9, sway: 0.004,
-    sketch: false, // beyond the ink, pines are drawn as bare trunks; foliage blooms in with the ink
+    near: 6, far: 60, density: 1.45, mist: 1.5, grain: 2.4, sil: 0.7, shade: 0.8,
+    ragged: 0.9, sway: 0.004, tint, wash: 0.5,
+    washLit: new THREE.Color("#8fa77a"), washShade: new THREE.Color("#3f5a45"),
+    sketch: false, // beyond the ink, trees are drawn as bare trunks; foliage blooms in with the ink
   });
 
-  const maxPads = trees.length * 7 * 3;
-  const trunks = new THREE.InstancedMesh(trunkGeo, woodMat, trees.length);
-  const branches = new THREE.InstancedMesh(branchGeo, woodMat, maxPads);
-  const pads = new THREE.InstancedMesh(padGeo, padMat, maxPads);
-
+  const trunks = new THREE.InstancedMesh(trunkGeo, woodMat, spots.length);
+  const branches = new THREE.InstancedMesh(branchGeo, woodMat, spots.length * 10);
+  const padsBy = new Map(); // colour group (-1 evergreen, else AUTUMN index) → pad matrices
   const treeM = new THREE.Matrix4();
   const local = new THREE.Matrix4();
   const out = new THREE.Matrix4();
@@ -65,56 +109,58 @@ export function build({ scene, P, rng }) {
   const A = new THREE.Vector3();
   const B = new THREE.Vector3();
   const dir = new THREE.Vector3();
-  let n = 0; // branches
-  let m = 0; // pads
-  const C = new THREE.Vector3();
-  // A clump of 2-3 overlapping flattened pads reads as one irregular needle mass
-  const addClump = (treeMatrix, center, r) => {
-    const parts = 2 + Math.floor(rand() * 2);
+  let nb = 0;
+  let pads = null; // the current tree's colour group
+  const pad = (c, r, flat = 0.32) => {
+    // a clump of 4–6 overlapping lumpy pads reads as one irregular cloud of needles
+    const parts = 4 + Math.floor(rand() * 3);
     for (let j = 0; j < parts; j++) {
-      const rr = r * (j === 0 ? 1 : rand.range(0.55, 0.85));
-      C.set(
-        center.x + (j === 0 ? 0 : rand.range(-0.6, 0.6) * r),
-        center.y + (j === 0 ? 0 : rand.range(-0.05, 0.2) * r),
-        center.z + (j === 0 ? 0 : rand.range(-0.5, 0.5) * r)
+      const rr = r * (j === 0 ? 0.85 : rand.range(0.4, 0.7));
+      local.compose(
+        B.set(c.x + (j ? rand.range(-0.7, 0.7) * r : 0), c.y + (j ? rand.range(-0.08, 0.18) * r : 0), c.z + (j ? rand.range(-0.6, 0.6) * r : 0)),
+        q.setFromAxisAngle(UP, rand() * Math.PI),
+        s.set(rr, rr * rand.range(flat * 0.8, flat * 1.2), rr * rand.range(0.7, 0.9))
       );
-      local.compose(C, new THREE.Quaternion().setFromAxisAngle(UP, rand() * Math.PI),
-        s.set(rr, rr * rand.range(0.3, 0.45), rr * rand.range(0.65, 0.85)));
-      pads.setMatrixAt(m++, out.multiplyMatrices(treeMatrix, local));
+      pads.push(new THREE.Matrix4().multiplyMatrices(treeM, local));
     }
   };
 
-  trees.forEach((tr, i) => {
-    treeM.compose(new THREE.Vector3(tr.x, 0, tr.z), q.setFromAxisAngle(UP, tr.yaw), s.set(1, 1, 1));
-    // trunk (scaled to height; the bend is in x so it scales with sc only)
-    local.compose(new THREE.Vector3(), new THREE.Quaternion(), s.set(tr.sc, tr.h, tr.sc));
-    trunks.setMatrixAt(i, out.multiplyMatrices(treeM, local));
+  spots.forEach((tr, i) => {
+    const group = tr.autumn ?? -1;
+    if (!padsBy.has(group)) padsBy.set(group, []);
+    pads = padsBy.get(group);
+    const sc = rand.range(0.85, 1.3);
+    const lean = rand.range(-0.12, 0.12);
+    treeM.compose(new THREE.Vector3(tr.x, 0, tr.z), q.setFromEuler(new THREE.Euler(lean, rand() * Math.PI * 2, 0, "YXZ")), s.set(1, 1, 1));
+    trunks.setMatrixAt(i, out.multiplyMatrices(treeM, local.makeScale(sc, tr.h, sc)));
+    const trunkAt = (yn) => A.set((0.45 * Math.sin(yn * 2.4) - 0.2 * yn) * sc, yn * tr.h, 0);
 
-    const trunkAt = (yn) => A.set(bend(yn) * tr.sc, yn * tr.h, 0);
-    const padCount = 3 + Math.floor(rand() * 4);
-    for (let k = 0; k < padCount; k++) {
-      const yn = 0.35 + (k / padCount) * 0.58 + rand.range(-0.04, 0.04);
+    // branches: angled up, then the pad out at the tip; longest low down
+    const n = 5 + Math.floor(rand() * 4);
+    for (let k = 0; k < n; k++) {
+      const yn = 0.32 + (k / n) * 0.6 + rand.range(-0.03, 0.03);
       trunkAt(yn);
       const phi = rand() * Math.PI * 2;
-      const L = rand.range(0.6, 1.5) * (1.1 - yn) * tr.h * 0.35 + 0.4;
-      B.set(A.x + Math.cos(phi) * L, A.y + 0.15 * L, A.z + Math.sin(phi) * L);
-      // branch from trunk to pad
-      dir.subVectors(B, A);
+      const L = rand.range(0.7, 1.3) * (1.15 - yn) * tr.h * 0.42 + 0.5;
+      const tip = new THREE.Vector3(A.x + Math.cos(phi) * L, A.y + L * rand.range(0.15, 0.35), A.z + Math.sin(phi) * L);
+      dir.subVectors(tip, A);
       const len = dir.length();
-      local.compose(A, new THREE.Quaternion().setFromUnitVectors(UP, dir.normalize()), s.set(0.07, len, 0.07));
-      branches.setMatrixAt(n, out.multiplyMatrices(treeM, local));
-      // needle mass at the branch tip
-      addClump(treeM, B, rand.range(0.7, 1.25) * ((1.15 - yn) * tr.h * 0.16 + 0.45));
-      n++;
+      local.compose(A, new THREE.Quaternion().setFromUnitVectors(UP, dir.normalize()), s.set(0.08, len, 0.08));
+      branches.setMatrixAt(nb++, out.multiplyMatrices(treeM, local));
+      pad(tip, rand.range(0.8, 1.2) * ((1.2 - yn) * tr.h * 0.17 + 0.55));
     }
-    // crown
+    // the crown: a wide dome of pads
     trunkAt(1);
-    addClump(treeM, A.add(new THREE.Vector3(0, 0.1, 0)), (0.35 * tr.h * 0.16 + 0.45) * rand.range(0.9, 1.2));
+    pad(A.clone().add(new THREE.Vector3(0, 0.15, 0)), (tr.h * 0.13 + 0.6) * rand.range(0.9, 1.2), 0.42);
   });
 
-  branches.count = n;
-  pads.count = m;
-  for (const m of [trunks, branches, pads]) {
+  branches.count = nb;
+  const padMeshes = [...padsBy].map(([group, list]) => {
+    const m = new THREE.InstancedMesh(padGeo, padMat(group < 0 ? "foliage" : AUTUMN[group]), list.length);
+    list.forEach((mat, k) => m.setMatrixAt(k, mat));
+    return m;
+  });
+  for (const m of [trunks, branches, ...padMeshes]) {
     m.instanceMatrix.needsUpdate = true;
     m.frustumCulled = false;
     scene.add(m);

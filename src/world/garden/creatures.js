@@ -3,19 +3,19 @@ import { inkMaterial, SEAL_RED } from "../../ink/material.js";
 
 // Shared looks: "white" parts are bare paper with an ink outline, as in a painting.
 const mats = () => ({
-  white: inkMaterial({
+  white: inkMaterial({ tint: "none",
     channel: "mid", bias: 0.15, climb: 0.02, noiseScale: 0.8, near: 3, far: 45,
     density: 0.14, mist: 0.01, grain: 2, shade: 0.15, sil: 1.2,
   }),
-  black: inkMaterial({
+  black: inkMaterial({ tint: "none",
     channel: "mid", bias: 0.15, climb: 0.02, noiseScale: 0.8, near: 3, far: 45,
     density: 1.1, mist: 0.01, grain: 2.5, shade: 0.6, sil: 0.5,
   }),
-  red: inkMaterial({
+  red: inkMaterial({ tint: "none",
     channel: "mid", bias: 0.15, climb: 0.02, noiseScale: 0.8, near: 3, far: 45,
     density: 0.95, mist: 0.01, grain: 3, shade: 0.4, sil: 0, color: SEAL_RED,
   }),
-  tan: inkMaterial({
+  tan: inkMaterial({ tint: "wood",
     channel: "mid", bias: 0.15, climb: 0.02, noiseScale: 0.8, near: 3, far: 45,
     density: 0.38, mist: 0.01, grain: 1.8, shade: 0.35, sil: 1.0, wash: 1.6,
   }),
@@ -71,7 +71,23 @@ function deer(M, rand, stag) {
 }
 
 // a butterfly: two wings that flap, wandering around a spot
-function butterfly(rand, color) {
+/** Move a butterfly (from butterfly()) on its wandering loop around b.center, flapping. */
+const nextPos = new THREE.Vector3();
+export function flutterAround(b, time) {
+  const t = time * b.speed + b.phase;
+  nextPos.set(
+    b.center.x + Math.sin(t * 0.7) * b.radius + Math.sin(t * 1.9) * 0.4,
+    0.6 + Math.sin(t * 1.3) * 0.35 + Math.sin(t * 3.1) * 0.12,
+    b.center.z + Math.cos(t * 0.53) * b.radius + Math.cos(t * 2.3) * 0.4
+  );
+  b.group.lookAt(nextPos);
+  b.group.position.copy(nextPos);
+  const f = Math.sin(time * 18 + b.phase) * 0.9;
+  b.l.rotation.z = f;
+  b.r.rotation.z = -f;
+}
+
+export function butterfly(rand, color, matOpts = {}) {
   const wing = new THREE.BufferGeometry();
   wing.setAttribute("position", new THREE.Float32BufferAttribute([
     0, 0, 0.02,  0.13, 0, 0.1,  0.16, 0, -0.02,
@@ -82,7 +98,7 @@ function butterfly(rand, color) {
   wing.computeVertexNormals();
   const mat = inkMaterial({
     channel: "mid", bias: 0.15, climb: 0, noiseScale: 2, noiseAmp: 0.2, near: 3, far: 30, minFar: 0,
-    density: 0.9, mist: 0.01, grain: 4, sil: 0, sketch: false, color, side: THREE.DoubleSide,
+    density: 0.9, mist: 0.01, grain: 4, sil: 0, sketch: false, color, side: THREE.DoubleSide, ...matOpts,
   });
   const g = new THREE.Group();
   const l = new THREE.Mesh(wing, mat);
@@ -117,11 +133,15 @@ export function build({ scene, places: L, rng }) {
   const R = L.river;
   const flowYaw = Math.atan2(R.flow.x, R.flow.z);
 
-  // cranes: two in the shallows, one on the far bank
+  // cranes: wading in the near shallows of the waterfall's pool, one on the far side
+  const pool = L.pool;
+  const near = pool.toPath;                          // toward the walk
+  const across = new THREE.Vector3(-near.z, 0, near.x);
+  const inPool = (n, a) => pool.pos.clone().addScaledVector(near, n).addScaledVector(across, a);
   const cranes = [
-    { p: R.at(-7.5, 1.3), yaw: flowYaw + 0.3 },
-    { p: R.at(-10.2, -0.7), yaw: flowYaw + Math.PI - 0.4 },
-    { p: R.at(-13.5, 4.3), yaw: flowYaw + 1.2 },
+    { p: inPool(5.6, 1.6), yaw: flowYaw + 0.3 },
+    { p: inPool(6.6, -2.6), yaw: flowYaw + Math.PI - 0.4 },
+    { p: inPool(0.5, pool.r + 1.2), yaw: flowYaw + 1.2 }, // on the bank
   ].map(({ p, yaw }) => {
     const c = crane(M, rand);
     c.group.position.copy(p);
@@ -161,11 +181,10 @@ export function build({ scene, places: L, rng }) {
   const skiff = boat(M);
   scene.add(skiff);
 
-  // where the named views (places.js) attach
+  // where the cranes are (places.js), for anything that wants to find them
   L.cranes.pos.copy(cranes[0].group.position);
 
   const target = new THREE.Vector3();
-  const next = new THREE.Vector3();
   return {
     update(time, camera) {
       // cranes dip their heads now and then
@@ -190,25 +209,15 @@ export function build({ scene, places: L, rng }) {
 
       // butterflies wander and flap
       for (const b of flutter) {
-        const t = time * b.speed + b.phase;
-        next.set(
-          b.center.x + Math.sin(t * 0.7) * b.radius + Math.sin(t * 1.9) * 0.4,
-          0.6 + Math.sin(t * 1.3) * 0.35 + Math.sin(t * 3.1) * 0.12,
-          b.center.z + Math.cos(t * 0.53) * b.radius + Math.cos(t * 2.3) * 0.4
-        );
-        b.group.lookAt(next);
-        b.group.position.copy(next);
-        const f = Math.sin(time * 18 + b.phase) * 0.9;
-        b.l.rotation.z = f;
-        b.r.rotation.z = -f;
+        flutterAround(b, time);
       }
 
-      // the boat drifts slowly up and down the river, bobbing
-      const along = 16 + Math.sin(time * 0.04) * 6;
-      skiff.position.copy(R.at(along, 0.4));
-      skiff.position.y = Math.sin(time * 1.6) * 0.03;
-      skiff.rotation.set(Math.sin(time * 1.1) * 0.02, flowYaw + Math.sin(time * 0.07) * 0.15, Math.sin(time * 1.3) * 0.03);
-      L.boat.pos.copy(skiff.position); // its view name follows the boat
+      // the fisherman drifts in a slow circle on the pool, bobbing
+      const a = time * 0.035;
+      const c = inPool(2.2, 0); // circling the near half of the pool, clear of the falls
+      skiff.position.set(c.x + Math.cos(a) * pool.r * 0.38, Math.sin(time * 1.6) * 0.03 + 0.03, c.z + Math.sin(a) * pool.r * 0.38);
+      skiff.rotation.set(Math.sin(time * 1.1) * 0.02, -a + Math.sin(time * 0.07) * 0.15, Math.sin(time * 1.3) * 0.03);
+      L.boat.pos.copy(skiff.position);
     },
   };
 }

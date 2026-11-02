@@ -29,46 +29,50 @@ So beyond the ink, within ~75 m, the landscape is a light sepia line drawing (un
 shapes left as paper, 留白), and the ink floods into those outlines as you arrive. In the
 opening, the sketch races out from the first drop and the washes follow behind it.
 
-## A stroll, not a tour
+## Stand still: the colour stage
 
-Between the sections the walk is a breath of fresh air: small things to enjoy, the way
-a Chinese garden is laid out as a sequence of views, each with a poetic name that
-brushes in beside it as you arrive (and gently draws your gaze):
+A painting gets its outline first (勾), then its ink (染), and its **colour last (设色)**.
+The walk does the first two by itself. The third is a reward for pausing: stand still and
+crane your head to the side, and colour blooms where you look: mineral blue-green on the
+mountains (the 青绿 "blue-green landscape" style), green on the leaves, a spring wash on the
+ground, teal water, flowers springing up toward you, butterflies arriving. It comes in
+faint and fills in while you keep looking, and the brush pointer's tip loads with the colour.
+The places you lingered stay coloured, so by the end of a visit the scroll records where you
+stopped to look.
 
-| Where | What | View name |
-|---|---|---|
-| Entrance | boulder with your name carved in red + plum tree in blossom | — |
-| Koi pond | koi, lotus, scholar's rocks | 知鱼 the joy of fish |
-| After the grove | the path runs through bamboo | 竹径 bamboo path |
-| River | cranes wading; a fisherman drifting in a boat | 鹤鸣 cranes calling · 独钓 fishing alone |
-| Meadow | deer grazing (they look up at you), wildflowers, butterflies | 鹿鸣 the deer call |
-| Distance | a pagoda on a far hill | 远塔 a pagoda far off |
-| Pavilion | plum tree, falling petals | 暗香 a hidden fragrance |
+## The walk
 
-And on the horizon, **spectacles** you see from afar. Their names appear when you turn to
-look at them:
+1. **Your name**, carved in red on a boulder at the entrance, beside a plum tree in blossom.
+2. **Contacts, at the lotus pond**: three small carved rocks on its near shore, **GitHub ↗**,
+   **LinkedIn ↗** and **Email ↗** (click them).
+3. **Experience**: an avenue of stone tablets (碑林), one per role, between whitewashed garden
+   walls (粉墙) with dark tile coping, lattice windows (漏窗) and a moon gate (月洞门), bamboo
+   peeking over. The waterfall is already visible at the end of it.
+4. **Projects**: stone lanterns, warmly lit, lining the path through the bamboo.
+5. **The waterfall**: you come out of the bamboo facing it. It pours down a ravine into a pool,
+   mist billowing up where it lands; cranes wade in the shallows, a fisherman drifts on the pool,
+   deer graze by its stream, which runs under a stone arch bridge.
+6. **Resume**: across the bridge, the pagoda on the canyon's rim, and the pavilion, its hanging
+   scrolls the pages of your resume.
+7. **The end: nothing built but a stone bench.** The land stops at a cliff with a lone pine on
+   the brink. Below, a canyon that is a forest of stone: sheer towers rising out of a sea of
+   cloud (云海), pines on their crowns, cloud drifting through their middles, a natural stone arch
+   (天生桥) between two of them, a waterfall leaping into the cloud. They step back in layers, each
+   paler than the last, to the far ranges and a huge red sun (红日) setting in the saddle between
+   them, its warm glow washed across the sky and the haze, cranes gliding across its face. The
+   sun is the walk's one big accent of cinnabar, and you catch it from far back: beside the
+   waterfall, behind the pavilion as you cross the bridge. Sit on the bench and you turn round
+   to look back over the way you came; turn your head right round for the canyon and the sun.
 
-| Spectacle | Name | Seen from |
-|---|---|---|
-| A waterfall pouring down a ravine | 飞瀑 flying falls | the start → the bamboo (left) |
-| An old pine reaching out from a summit | 迎客松 the welcoming pine | the river → the meadow (right) |
-| A V of wild geese looping over the valley | 归雁 geese flying home | most of the walk |
-| A pagoda on a far hill | 远塔 a pagoda far off | the meadow → the end (right) |
-| A temple on a cliff, above a belt of cloud | 云寺 a temple in the clouds | the pavilion → the end (left) |
+Along the way, birds come down to peck ahead of you and scatter as you approach, and rabbits
+sit up in the grass, then bolt. Petals drift down around you: plum blossom early on, gold and
+orange leaves toward the end, where more and more of the trees are turning (colour them in and
+they come out gold, orange and red instead of green). As you near one of your points, your
+head is gently nudged toward it.
 
 The entrance is deliberately a *rock*, not a gate: scenic places in China name
 themselves with inscriptions carved into stone, so it marks the spot without walling
 off the "dropped into nature" feeling. (A moon gate is still an option, see backlog.)
-
-## The walk (sections = places)
-
-1. **Entrance — misty mountains.** Only a seal and your name, half-dissolved in fog. *(landing)*
-2. **Pine grove.** A stone tablet beside the path. *(about me)*
-3. **River and stone bridge.** Each stepping stone or lantern is one project. *(work/projects)*
-4. **The pavilion.** Walk inside; hanging scrolls on the walls are your featured pieces.
-   This is the "museum room." *(portfolio / writing / photos)*
-5. **The far bank — colophons.** The path ends at blank paper where you stamp your seal.
-   *(contact; could later become a guestbook where visitors leave a mark)*
 
 ## Visual rules (so it stays coherent)
 
@@ -94,14 +98,13 @@ off the "dropped into nature" feeling. (A moon gate is still an option, see back
 - **Moon gate entrance** (圆洞门): a short white wall with a round opening that frames
   the first view. More "garden", less "wild"; could replace or sit behind the name rock.
 
-- **Real work in the pavilion:** the hanging scrolls become your actual projects/images
-  (textures), and the ink spreads over them as you approach.
-- **Guestbook seals:** at the stele, visitors stamp a small seal of their own. That's the
+- **Real content on the tablets, lanterns and scrolls:** each Experience tablet carries a role,
+  each lantern a project (click to open it), each scroll a page of the resume.
+- **Guestbook seals:** at the cliff edge, visitors stamp a small seal of their own. That's the
   colophon tradition; it needs a tiny backend later.
-- **Sound:** wind, water at the river, a few guqin notes when a section writes itself in.
-- **Plum blossoms** near the pavilion: the one place the red appears outside seals and sun.
-- **Time of day along the walk:** paper warms toward dusk as you approach the end.
-- **Calligraphy on the stele:** your name or a line of poetry, brushed in as you arrive.
+- **Sound:** wind, the waterfall, a few guqin notes when a section writes itself in.
+- **Time of day along the walk:** paper warms toward dusk as you approach the setting sun at the end.
+- **Calligraphy on the tablets:** a line of poetry brushed in as you arrive.
 - **"Skip the walk" view:** plain, fast page with the same content (recruiters, slow phones).
 
 ## Open questions

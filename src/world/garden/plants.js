@@ -10,7 +10,7 @@ const BLOSSOM = new THREE.Color("#c2364a");
 // The garden's plants: bamboo, two plum trees, wildflowers.
 export function build({ scene, P, places, rng }) {
   const rand = rng(78);
-  addBamboo(scene, P, places.bamboo.range, rand);
+  addBamboo(scene, P, places.bamboo.range, rand, places.wallBamboo ?? []);
   const plums = [
     addPlumTree(scene, places.plumEntrance.pos, rand, { height: 3.2 }),
     addPlumTree(scene, places.plumPavilion.pos, rand, { height: 3.6 }),
@@ -25,22 +25,23 @@ export function build({ scene, P, places, rng }) {
 }
 
 // 竹径 — a stretch of path through swaying bamboo (between path positions t0 and t1).
-function addBamboo(scene, P, [t0, t1], rand) {
+function addBamboo(scene, P, [t0, t1], rand, extraClumps = []) {
   const culms = [];
+  const clump = (base, n) => {
+    for (let k = 0; k < n; k++) {
+      culms.push({
+        x: base.x + rand.range(-0.5, 0.5), z: base.z + rand.range(-0.5, 0.5),
+        h: rand.range(6, 9.5), lean: rand.range(-0.07, 0.07), yaw: rand() * Math.PI * 2,
+      });
+    }
+  };
   for (let t = t0; t <= t1; t += 0.0045) {
     for (const sign of [-1, 1]) {
       if (rand() < 0.35) continue;
-      const off = sign * rand.range(1.9, 6.5);
-      const base = P.at(t, off);
-      const n = 1 + Math.floor(rand() * 3); // bamboo grows in clumps
-      for (let k = 0; k < n; k++) {
-        culms.push({
-          x: base.x + rand.range(-0.5, 0.5), z: base.z + rand.range(-0.5, 0.5),
-          h: rand.range(6, 9.5), lean: rand.range(-0.07, 0.07), yaw: rand() * Math.PI * 2,
-        });
-      }
+      clump(P.at(t, sign * rand.range(2.6, 6.5)), 1 + Math.floor(rand() * 3)); // clear of the lanterns
     }
   }
+  for (const p of extraClumps) clump(p, 2 + Math.floor(rand() * 3)); // e.g. behind the garden walls
 
   // culm: thin cylinder with swollen nodes every ~0.45 m (scaled per instance)
   const culmGeo = new THREE.CylinderGeometry(0.045, 0.06, 1, 6, 90).translate(0, 0.5, 0);
@@ -56,12 +57,12 @@ function addBamboo(scene, P, [t0, t1], rand) {
     culmGeo.computeVertexNormals();
   }
   const greenInk = new THREE.Color("#1d2722");
-  const culmMat = inkMaterial({
+  const culmMat = inkMaterial({ tint: "foliage",
     channel: "mid", climb: 0.03, noiseScale: 0.35, noiseAmp: 0.3, near: 5, far: 50,
     density: 0.95, mist: 1.2, grain: 2.5, shade: 0.5, sil: 0.8, wash: 0.6, sway: 0.006,
     washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk,
   });
-  const leafMat = inkMaterial({
+  const leafMat = inkMaterial({ tint: "foliage",
     channel: "mid", climb: 0.03, noiseScale: 0.35, noiseAmp: 0.3, near: 5, far: 50,
     density: 1.15, mist: 1.2, grain: 3, shade: 0.8, sil: 0.3, wash: 0.5, sway: 0.006,
     washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk, side: THREE.DoubleSide,
@@ -157,12 +158,12 @@ function addPlumTree(scene, origin, rand, { height = 3.4 } = {}) {
   grow(origin.clone(), new THREE.Vector3(rand.range(-0.3, 0.3), 1, rand.range(-0.3, 0.3)).normalize(), height, 0.13, 0);
 
   scene.add(new THREE.Mesh(mergeGeometries(tubes), inkMaterial({
-    channel: "mid", climb: 0.05, noiseScale: 0.5, noiseAmp: 0.3, near: 4, far: 45,
+    tint: "wood", channel: "mid", climb: 0.05, noiseScale: 0.5, noiseAmp: 0.3, near: 4, far: 45,
     density: 1.1, mist: 0.8, grain: 3, shade: 0.6, sil: 0.8,
   })));
 
   // blossoms: little five-petal discs clustered at the branch tips
-  const blossomMat = inkMaterial({
+  const blossomMat = inkMaterial({ tint: "blossom",
     channel: "mid", bias: 0.05, climb: 0.05, noiseScale: 1.2, noiseAmp: 0.25, near: 4, far: 45,
     density: 0.85, mist: 0.01, grain: 4, shade: 0.3, sil: 0, color: BLOSSOM, sketch: false,
     side: THREE.DoubleSide,
@@ -228,13 +229,13 @@ function addPlumTree(scene, origin, rand, { height = 3.4 } = {}) {
 function addWildflowers(scene, center, radius, count, rand) {
   const stemGeo = new THREE.CylinderGeometry(0.008, 0.012, 1, 3).translate(0, 0.5, 0);
   const headGeo = new THREE.IcosahedronGeometry(0.06, 0);
-  const stemMat = inkMaterial({
+  const stemMat = inkMaterial({ tint: "foliage",
     channel: "mid", bias: 0.2, climb: 0.1, noiseScale: 1, near: 3, far: 30, minFar: 0,
     density: 0.8, mist: 0.01, grain: 3, sil: 0, sketch: false, sway: 0.05,
   });
   const colours = [SEAL_RED, new THREE.Color("#c99a3a"), new THREE.Color("#7a5a9a")];
   const stems = new THREE.InstancedMesh(stemGeo, stemMat, count);
-  const heads = colours.map((col) => new THREE.InstancedMesh(headGeo, inkMaterial({
+  const heads = colours.map((col) => new THREE.InstancedMesh(headGeo, inkMaterial({ tint: "blossom",
     channel: "mid", bias: 0.2, climb: 0.1, noiseScale: 1, near: 3, far: 30, minFar: 0,
     density: 0.75, mist: 0.01, grain: 3, shade: 0.3, sil: 0, sketch: false, sway: 0.05, color: col,
   }), count));

@@ -15,7 +15,7 @@ export function build({ scene, places, rng }) {
   const water = new THREE.Mesh(
     new THREE.CircleGeometry(R, 64).rotateX(-Math.PI / 2),
     inkMaterial({
-      variant: "pond", channel: "mid", bias: 0.08, climb: 0, noiseScale: 0.15, noiseAmp: 0.3,
+      variant: "pond", tint: "water", channel: "mid", bias: 0.08, climb: 0, noiseScale: 0.15, noiseAmp: 0.3,
       near: 3, far: 45, minFar: 0, density: 0.55, mist: 0.01, sil: 0,
       color: new THREE.Color("#22303d"), flow: new THREE.Vector4(R, 0, c.x, c.z),
     })
@@ -34,13 +34,13 @@ export function build({ scene, places, rng }) {
     }
     leafGeo.computeVertexNormals();
   }
-  const leafMat = inkMaterial({
+  const leafMat = inkMaterial({ tint: "foliage",
     channel: "mid", bias: 0.12, climb: 0.05, noiseScale: 0.6, noiseAmp: 0.3, near: 3, far: 40,
     density: 0.8, mist: 0.01, grain: 1.2, shade: 0.55, sil: 0.4, wash: 1, ragged: 0.25,
     washLit: LOTUS_GREEN_LIT, washShade: LOTUS_GREEN_SHADE, color: new THREE.Color("#1c2620"),
     side: THREE.DoubleSide,
   });
-  const stemMat = inkMaterial({
+  const stemMat = inkMaterial({ tint: "foliage",
     channel: "mid", bias: 0.12, climb: 0.05, noiseScale: 0.6, near: 3, far: 40,
     density: 0.85, mist: 0.01, grain: 3, sil: 0, color: new THREE.Color("#1c2620"),
   });
@@ -73,7 +73,7 @@ export function build({ scene, places, rng }) {
     g.computeVertexNormals();
     return g;
   })();
-  const flowerMat = inkMaterial({
+  const flowerMat = inkMaterial({ tint: "blossom",
     channel: "mid", bias: 0.15, climb: 0.05, noiseScale: 0.8, near: 3, far: 40,
     density: 0.55, mist: 0.01, grain: 2, shade: 0.3, sil: 0.7, color: new THREE.Color("#b84f68"),
     side: THREE.DoubleSide,

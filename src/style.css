@@ -14,7 +14,7 @@ html, body {
   font-family: "Cormorant Garamond", Georgia, serif;
 }
 
-#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* Light paper grain over the text too, so it reads as printed on the same sheet */
 body::after {
@@ -67,10 +67,10 @@ body::after {
   to   { transform: scale(1) rotate(-3deg); opacity: 1; }
 }
 
-/* ---------- View names (知鱼, 竹径 ...) floating beside things in the world ---------- */
-#views { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+/* ---------- Markers for your points, floating in the world ---------- */
+#markers { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 
-.view-label {
+.marker-label {
   position: absolute;
   left: 0;
   top: 0;
@@ -79,32 +79,89 @@ body::after {
   align-items: center;
   visibility: hidden;
   will-change: transform;
-}
-.view-label .zh {
-  writing-mode: vertical-rl;
-  font-family: "Ma Shan Zheng", serif;
-  font-size: 1.9rem;
-  letter-spacing: 0.12em;
   color: var(--ink);
-  margin: 0;
-  opacity: 0.85;
+  text-decoration: none;
+  padding: 4px 8px;
+  /* a soft halo of paper, so it reads over dark foliage */
+  text-shadow: 0 0 2px var(--paper), 0 0 6px var(--paper), 0 0 12px var(--paper);
 }
-.view-label .en {
-  margin-top: 0.35rem;
-  font-style: italic;
-  font-size: 0.95rem;
+.marker-label .zh {
+  font-family: "Ma Shan Zheng", serif;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  color: var(--seal);
+}
+.marker-label .en {
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
   white-space: nowrap;
-  opacity: 0.65;
 }
-/* far-off spectacles: larger, lighter, like an inscription in the sky */
-.view-label.far .zh { font-size: 2.4rem; opacity: 0.7; }
-.view-label.far .en { opacity: 0.55; }
-.view-label .en::before {
+.marker-label .en::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: var(--seal);
+}
+/* links (GitHub, LinkedIn, Resume): underline on hover */
+.marker-label.link .en {
+  font-style: italic;
+  font-size: 1.15rem;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.2s;
+}
+.marker-label.link:hover .en { text-decoration-color: var(--seal); }
+
+/* ---------- The brush pointer (src/app/brush.js) ---------- */
+html, body, #scene, a, button { cursor: none; }
+#brush {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.2s;
+  transform-origin: 6px 58px; /* the tip of the brush (scaled up 1.3× in brush.js) */
+  will-change: transform;
+}
+#brush.on { opacity: 1; }
+#brush svg { overflow: visible; }
+#brush .load { transition: fill 0.3s; }
+/* drops of ink flicked off the brush when you click */
+#splats { position: fixed; inset: 0; pointer-events: none; z-index: 19; }
+#splats i { position: absolute; border-radius: 50% 45% 55% 50%; }
+@media (pointer: coarse) {
+  #brush, #splats { display: none; }
+  html, body, #scene, a, button { cursor: auto; }
+}
+
+/* ---------- "linger — turn your head" hint ---------- */
+.still-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 8vh;
+  transform: translateX(-50%);
+  font-style: italic;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  color: var(--ink);
+  opacity: 0.8;
+  pointer-events: none;
+  visibility: hidden;
+}
+.still-hint::before {
   content: "";
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin-right: 6px;
+  margin-right: 8px;
   vertical-align: middle;
   background: var(--seal);
 }
@@ -138,7 +195,7 @@ body::after {
   border: 1px solid rgba(29, 33, 40, 0.45);
   border-radius: 50%;
   background: var(--paper);
-  cursor: pointer;
+  cursor: none; /* the brush is the pointer */
 }
 #progress .marker::after {
   content: attr(data-label);
