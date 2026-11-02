@@ -103,7 +103,8 @@ off to the right, the red sun you'll walk toward. (A moon gate is still an optio
 - **No hard 3D lighting.** Shading is "ink density," not shadows. No textures that look
   photographic.
 - **Mist pools at the bottom** of things (classic 留白, "leaving white"). Empty paper is
-  part of the composition — don't fill the scene.
+  part of the composition — don't fill the scene. The mountains rise out of it, their feet
+  dissolving into the paper; the canyon's sea of cloud thins away as it comes in to the rim.
 - **Type:** a calligraphic face for occasional characters, a quiet serif for English.
 
 ## Alternatives considered

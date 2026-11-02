@@ -77,7 +77,7 @@ export function massifGeometry(rand, x, z, R, H, style = {}) {
       const da = Math.atan2(Math.sin(Math.atan2(cz, cx) - Math.atan2(gully.z, gully.x)), Math.cos(Math.atan2(cz, cx) - Math.atan2(gully.z, gully.x)));
       if (Math.abs(da) < gully.width * 1.6) continue;
     }
-    peaks.push({ cx, cz, r: R * own.range(0.1, 0.2), h: Math.min(under + H * own.range(0.08, 0.2), H * 1.02) });
+    peaks.push({ cx, cz, r: R * own.range(0.1, 0.2), h: Math.min(under + H * own.range(0.07, 0.17), H * 1.02) });
   }
   // boulders crowning the summits (矾头): a few small rounded knobs on each
   const knobs = [];
@@ -199,6 +199,7 @@ export function mountainMaterial(overrides = {}) {
   return inkMaterial({
     channel: "far", climb: 0.004, noiseScale: 0.03, noiseAmp: 0.3, edge: 0.015,
     rimWidth: 0.05, rim: 0.5, near: 40, far: 320, minFar: 0.22, density: 0.9, mist: 18,
+    mistFloor: 0, // (their feet fade right away into the mist: they rise out of the ground)
     grain: 0.12, wash: 1, dots: 0.9, tint: "mountain",
     cloud: new THREE.Vector4(30, 6, 0.85, 1),
     ...overrides,
@@ -220,7 +221,7 @@ export function mountainBushes(geos, { seed, distTo, skip = null, density = 0.05
     return surfaceSpots(g, rand, { density: perVertex, faces: 0.04, minY: 8, maxY: max.y - (max.y - min.y) * 0.12, skip, cluster: [1, 3] });
   });
   return bushMesh(spots, rand, bushInk({
-    channel: "far", climb: 0.004, noiseScale: 0.03, noiseAmp: 0.3, near: 40, far: 320, minFar: 0.22, mist: 18,
+    channel: "far", climb: 0.004, noiseScale: 0.03, noiseAmp: 0.3, near: 40, far: 320, minFar: 0.22, mist: 18, mistFloor: 0,
   }), (s) => THREE.MathUtils.clamp(1.2 + distTo(s.p) * 0.012, 1.2, 3.6));
 }
 
@@ -234,7 +235,7 @@ export function build({ scene, P, rng }) {
     const x = rand.range(-175, 175);
     const z = rand.range(-155, 45);
     const R = rand.range(26, 46);
-    const H = THREE.MathUtils.clamp(R * rand.range(0.7, 1.1), 18, 48); // (broad: their flanks flare out at the foot)
+    const H = THREE.MathUtils.clamp(R * rand.range(0.5, 0.78), 14, 32); // (low and broad: their flanks flare out at the foot)
     // stay off the path, on solid ground (the canyon has its own pillars, see spectacles/vista.js),
     // and out of the garden's spots and the sight lines (to the waterfall, and from the lookout)
     if (P.distToPath(x, z) < R + 12 || P.cliffDist(x, z) > -R * 1.1) continue;

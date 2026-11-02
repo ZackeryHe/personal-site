@@ -339,6 +339,13 @@ const fragmentShader = /* glsl */ `
       float detail = fbm3(cp * 3.0 + vec3(0.0, uTime * 0.01, 0.0));
       ink = smoothstep(0.3, 0.75, body) * (0.4 + 0.6 * detail) * 0.6;
       ink = (ink * (1.0 - clamp(slope, 0.0, 1.0) * 0.7) + clamp(-slope, 0.0, 1.0) * 0.18) * wet;
+      // its grey thins away into the paper as it comes in to the rim (all along it, so it melts
+      // into the land rather than meeting it in a line) and out toward its far edges
+      vec2 rel = vWorld.xz - uLand.xy;
+      float out_ = dot(rel, uLand.zw);                // metres out over the canyon from the brink
+      float along = abs(dot(rel, vec2(-uLand.w, uLand.z)));
+      ink *= smoothstep(6.0 + (blot - 0.5) * 16.0, 70.0, out_)
+           * (1.0 - smoothstep(170.0, 400.0, along)) * (1.0 - smoothstep(560.0, 860.0, out_));
       air = 1.0; // it is the mist, so the ground mist doesn't fade it
     }
   #endif
