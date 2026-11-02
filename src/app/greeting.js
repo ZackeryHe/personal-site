@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // The greeting, in 3D, while the world is built behind it: you stand in a dim grey space,
-// looking up at a great brush hanging overhead (a glass handle, a stone ferrule, and bristles
-// soaked with ink halfway up), a thread of incense smoke curling up beside it. Nothing of the
+// looking up at a great brush hanging overhead (a shaft of green jade, a cup of polished horn,
+// and bristles soaked with ink halfway up), a thread of incense smoke curling up beside it. Nothing of the
 // world shows out here: it's all inside the scroll. A drop of ink gathers at
 // its tip as the world loads. When you begin, it lets go and falls straight down into a scroll
 // lying unrolled below, your eyes following it down. Where it lands, the world itself paints
@@ -38,17 +38,23 @@ export function createGreeting(renderer) {
   scene.add(key, rim);
 
   // ---------- the brush ----------
+  // After a great Qing brush (大提笔; Wikimedia Commons: "Qing Writing Brush (9886986944).jpg"):
+  // its bristles set in a cup (斗) of polished ox horn, a fine green band where that's drawn in
+  // to the shaft, and the shaft of pale green nephrite. (No glass: nothing here needs three's
+  // transmission pass, so it's one less render of the scene each frame.)
   const brush = new THREE.Group();
   brush.position.copy(TIP);
   brush.scale.setScalar(SIZE);
   const lathe = (pts, seg = 48) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
-  const ferruleStone = new THREE.MeshPhysicalMaterial({
-    color: 0x3b4048, roughness: 0.22, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08,
+  const hornMap = hornTexture();
+  const horn = new THREE.MeshPhysicalMaterial({
+    map: hornMap, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide,
+    emissive: 0xffffff, emissiveMap: hornMap, emissiveIntensity: 0.12, // (light caught inside the horn: it glows a little, even in shadow)
   });
-  const glass = new THREE.MeshPhysicalMaterial({
-    color: 0xc4ccd6, roughness: 0.06, transmission: 1, thickness: 0.5, ior: 1.45,
-    attenuationColor: new THREE.Color(0x8f9aa6), attenuationDistance: 1.2, clearcoat: 1,
-  });
+  const band = new THREE.MeshPhysicalMaterial({ color: 0x1f8a63, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08 });
+  const jade = new THREE.MeshPhysicalMaterial({ map: jadeTexture(), roughness: 0.38, clearcoat: 0.7, clearcoatRoughness: 0.2 });
+  const SHAFT = { r: 0.14, length: 11, from: 2.21 }; // (its foot: just above the band)
+  jade.map.repeat.set(1, SHAFT.length / (2 * Math.PI * SHAFT.r)); // (the mottling square on the surface, not stretched)
   // bristles: a fat belly drawn to a fine point (y: up from the tip), pale dry hair above,
   // soaked black with ink from about halfway down (bristleTextures)
   const hair = bristleTextures();
@@ -58,10 +64,15 @@ export function createGreeting(renderer) {
     envMapIntensity: 0.4, // (or the wet ink mirrors the room, and reads as silver, not black)
   });
   brush.add(new THREE.Mesh(lathe([[0, 0], [0.045, 0.07], [0.13, 0.28], [0.24, 0.58], [0.33, 0.92], [0.33, 1.08], [0.28, 1.3]], 128), bristles));
-  brush.add(new THREE.Mesh(lathe([[0.27, 1.28], [0.3, 1.34], [0.3, 1.78], [0.24, 1.84]]), ferruleStone));
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 11, 48, 1, false), glass);
-  handle.position.y = 1.84 + 5.5;
-  brush.add(handle);
+  // the horn cup: a lip round the bristles, swelling, then drawn in like an egg to the shaft
+  brush.add(new THREE.Mesh(lathe([
+    [0.3, 1.25], [0.335, 1.2], [0.353, 1.27], [0.364, 1.39], [0.359, 1.53], [0.34, 1.68],
+    [0.305, 1.83], [0.255, 1.97], [0.2, 2.08], [0.158, 2.16],
+  ], 64), horn));
+  brush.add(new THREE.Mesh(lathe([[0.15, 2.152], [0.168, 2.162], [0.168, 2.208], [0.15, 2.22]]), band));
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(SHAFT.r, SHAFT.r, SHAFT.length, 48, 1, false), jade);
+  shaft.position.y = SHAFT.from + SHAFT.length / 2;
+  brush.add(shaft);
   scene.add(brush);
 
   // ---------- the drop of ink at its tip ----------
@@ -435,6 +446,107 @@ function strand(g, x, sway, from, to) {
     g.bezierCurveTo(x + dx + sway, from + (to - from) * 0.33, x + dx - sway, from + (to - from) * 0.66, x + dx + sway * 0.3, to);
     g.stroke();
   }
+}
+
+/**
+ * Polished ox horn, for the cup the bristles are set in (laid out as its lathe's uv: x round the
+ * cup, y from the lip up to the shaft): olive-brown at the lip, honey on the swell, paler amber
+ * where it's drawn in thin by the shaft, all through with the fine lengthwise grain of horn.
+ */
+function hornTexture() {
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d");
+  const img = g.createImageData(S, S);
+  // the grain: fine, uneven streaks round the cup (made of whole waves, so it meets itself all
+  // the way round), over a broad clouding, lighter where it's clearer and with darker inclusions
+  const N = 1024;
+  const grain = new Float32Array(N);
+  let total = 0;
+  for (let k = 0; k < 40; k++) {
+    const f = 6 + k * 3 + Math.floor(Math.random() * 3), a = 1 / (1 + k * 0.15), p = Math.random() * Math.PI * 2;
+    total += a;
+    for (let i = 0; i < N; i++) grain[i] += Math.sin((i / N) * f * Math.PI * 2 + p) * a;
+  }
+  const clouding = tileNoise(S, 3, 4);
+  const lip = [104, 90, 52], body = [196, 164, 96], neck = [216, 190, 124], streak = [84, 64, 32];
+  const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  for (let y = 0; y < S; y++) {
+    const v = 1 - y / S; // 0: the lip → 1: the shaft (the canvas's top row is the top of the cup)
+    const base = v < 0.35 ? mix(lip, body, v / 0.35) : v < 0.55 ? body : mix(body, neck, (v - 0.55) / 0.45);
+    for (let x = 0; x < S; x++) {
+      const s = grain[(Math.floor((x / S) * N + Math.sin(v * 9 + x * 0.05) * 4) + N) % N] / total * 3; // (wavering a little)
+      const m = clouding[y * S + x];
+      const shade = (0.95 + 0.1 * s) * (0.8 + 0.4 * m);
+      const dark = Math.min(1, Math.max(0, s - 0.75) * 1.2 + Math.max(0, 0.36 - m) * 1.5); // dark streaks, cloudy inclusions
+      const i = (y * S + x) * 4;
+      for (let ch = 0; ch < 3; ch++) img.data[i + ch] = base[ch] * shade + (streak[ch] - base[ch] * shade) * dark;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * Pale green nephrite, for the shaft: celadon, clouded grey-green, with milky patches and a few
+ * fine veins. Tiles both ways (it's repeated up the shaft).
+ */
+function jadeTexture() {
+  const S = 128;
+  const clouds = tileNoise(S, 4, 4), milk = tileNoise(S, 2, 3), veins = tileNoise(S, 3, 4);
+  const smooth = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d");
+  const img = g.createImageData(S, S);
+  for (let i = 0; i < S * S; i++) {
+    const cl = smooth(0.42, 0.75, clouds[i]) * 0.7;
+    const wh = smooth(0.55, 0.8, milk[i]) * 0.5;
+    const ve = (1 - smooth(0, 0.02, Math.abs(veins[i] - 0.5))) * 0.12;
+    const rgb = [176, 188, 172].map((v, ch) => {
+      v += ([132, 150, 134][ch] - v) * cl;
+      v += ([206, 212, 200][ch] - v) * wh;
+      return v + ([110, 128, 112][ch] - v) * ve;
+    });
+    img.data.set([rgb[0], rgb[1], rgb[2], 255], i * 4);
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+/** Value noise (a few octaves, 0–1) on an S×S grid that wraps round seamlessly both ways. */
+function tileNoise(S, cells, octaves) {
+  const out = new Float32Array(S * S);
+  let amp = 0.5, total = 0;
+  for (let o = 0, n = cells; o < octaves; o++, n *= 2, amp *= 0.5) {
+    const lattice = Float32Array.from({ length: n * n }, Math.random);
+    const at = (i, j) => lattice[(j % n) * n + (i % n)];
+    total += amp;
+    for (let y = 0; y < S; y++) {
+      const fy = (y / S) * n, iy = Math.floor(fy), ty = fy - iy, sy = ty * ty * (3 - 2 * ty);
+      for (let x = 0; x < S; x++) {
+        const fx = (x / S) * n, ix = Math.floor(fx), tx = fx - ix, sx = tx * tx * (3 - 2 * tx);
+        const top = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * sx;
+        const bottom = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * sx;
+        out[y * S + x] += (top + (bottom - top) * sy) * amp;
+      }
+    }
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= total;
+  return out;
 }
 
 /**
