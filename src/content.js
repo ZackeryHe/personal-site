@@ -2,7 +2,6 @@
 
 export const SITE = {
   name: "Zackery He", // the title card, the tab title, and carved on the entrance rock
-  initials: "ZH",     // the red seal
   hint: "scroll or swipe to walk · move to look · click to flick ink",
   stillHint: "linger — turn your head to look around", // shown the first time you stand still
 

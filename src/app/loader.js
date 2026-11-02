@@ -2,8 +2,8 @@ import { SITE } from "../content.js";
 
 // The greeting's page layer (the 3D of it is app/greeting.js): your name in white and a line
 // of status over the dim grey, until the 3D greeting is drawn behind them. Click anywhere (even
-// before it's ready: it goes as soon as it is), or scroll once it's ready: the drop falls toward
-// you and fills your view with ink, and the world opens out of the ink from where its first drop
+// before it's ready: it goes as soon as it is), or scroll once it's ready: the drop falls and
+// you follow it down until ink fills your view, and the world opens out of the ink from where its first drop
 // lands. (While it's up, scrolling doesn't walk you on unseen.)
 
 const WALK_KEYS = ["ArrowUp", "ArrowDown", "w", "W", "s", "S", "PageDown", "PageUp", " "];
@@ -19,9 +19,8 @@ export function createLoader() {
   document.body.classList.add("is-greeting"); // (the world's own words and marks wait: style.css)
 
   if (el) {
-    // the name and seal come from content.js (index.html has them too, for the first moment)
+    // the name comes from content.js (index.html has it too, for the first moment)
     el.querySelector(".loader-title h1").textContent = SITE.name;
-    el.querySelector(".loader-title .seal").textContent = SITE.initials;
     const enter = (e) => {
       e.preventDefault();
       e.stopPropagation(); // (not an ink flick)

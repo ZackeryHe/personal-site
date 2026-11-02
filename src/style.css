@@ -47,25 +47,6 @@ body::after {
 .station .hint { font-style: italic; opacity: 0.6; margin-top: 0.6em; font-size: 1rem; }
 .zh { font-family: "Ma Shan Zheng", serif; color: var(--seal); margin-right: 0.2em; }
 
-.seal {
-  display: inline-grid;
-  place-items: center;
-  width: 3.2rem;
-  height: 3.2rem;
-  margin-bottom: 0.8rem;
-  background: var(--seal);
-  color: var(--paper);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  border-radius: 4px;
-  box-shadow: inset 0 0 0 3px var(--seal), inset 0 0 0 5px var(--paper);
-  animation: stamp 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) 0.5s both;
-}
-
-@keyframes stamp {
-  from { transform: scale(1.9) rotate(-14deg); opacity: 0; }
-  to   { transform: scale(1) rotate(-3deg); opacity: 1; }
-}
 
 /* ---------- Markers for your points, floating in the world ---------- */
 #markers { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
@@ -261,19 +242,6 @@ html, body, #scene, a, button { cursor: none; }
   border-radius: 3px;
 }
 @media (pointer: coarse) { .keepsake-copy kbd { display: none; } }
-.keepsake-seal {
-  display: inline-grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  background: var(--seal);
-  color: var(--paper);
-  font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  border-radius: 2px;
-  text-shadow: none;
-}
 
 /* ink corner marks round the screen: the view framed for keeping */
 .frame-marks {
@@ -321,7 +289,7 @@ body.is-greeting #splats,
 body.is-greeting #brush { visibility: hidden; }
 body.is-greeting::after { opacity: 0; }
 
-/* your name: the title card's own styles (.station, .seal, .hint), in white */
+/* your name: the title card's own styles (.station, .hint), in white */
 #loader .loader-title { visibility: visible; transition: opacity 0.5s ease; }
 #loader .loader-title h1 { color: #fff; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35); }
 #loader .loader-title .hint { color: #e6e8ec; }

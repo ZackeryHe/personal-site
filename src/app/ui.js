@@ -78,8 +78,7 @@ function panelElement(p) {
   const el = document.createElement("section");
   el.className = "station";
   if (p.titleCard) {
-    el.innerHTML = `<div class="seal"></div><h1></h1><p class="hint"></p>`;
-    el.querySelector(".seal").textContent = SITE.initials;
+    el.innerHTML = `<h1></h1><p class="hint"></p>`;
     el.querySelector("h1").textContent = SITE.name;
     el.querySelector(".hint").textContent = SITE.hint;
   } else {

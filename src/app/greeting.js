@@ -3,15 +3,15 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // The greeting, in 3D, while the world is built behind it: you stand low in a dim grey space,
 // soft bubbles drifting up past you, looking up at a great brush hanging overhead (a glass
-// handle, a ferrule and bristles of polished stone). A drop of ink gathers at its tip as the
-// world loads. When you begin, the drop lets go and falls toward you, your eyes following it
-// down, until it fills your view (and the world opens out of it: app/loader.js).
+// handle, a stone ferrule, and bristles soaked with ink halfway up). A drop of ink gathers at its tip as the
+// world loads. When you begin, the drop lets go and falls straight down, and you sink after it,
+// down into the dark, until the ink takes your view (and the world opens out of it: app/loader.js).
 
 const TIP = new THREE.Vector3(0, 2.5, -2.3); // the brush's tip, above and ahead of you
 const LOOK = new THREE.Vector3(0, 5.6, -3.2); // where you look while you wait (up the brush)
 const SIZE = 1.5; // how big the brush is (it should loom)
 const FALL_TIME = 1.3; // seconds from letting go to filling your view
-const LAND = new THREE.Vector3(0.04, -0.1, -0.22); // where the drop ends: just in front of your eyes
+const DROP_TO = -7; // how far down the drop falls (it falls straight down, and you follow it)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -36,9 +36,6 @@ export function createGreeting(renderer) {
   brush.position.copy(TIP);
   brush.scale.setScalar(SIZE);
   const lathe = (pts, seg = 48) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
-  const stone = new THREE.MeshPhysicalMaterial({
-    color: 0x1b1e23, roughness: 0.32, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.12,
-  });
   const ferruleStone = new THREE.MeshPhysicalMaterial({
     color: 0x3b4048, roughness: 0.22, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08,
   });
@@ -46,8 +43,15 @@ export function createGreeting(renderer) {
     color: 0xc4ccd6, roughness: 0.06, transmission: 1, thickness: 0.5, ior: 1.45,
     attenuationColor: new THREE.Color(0x8f9aa6), attenuationDistance: 1.2, clearcoat: 1,
   });
-  // bristles: a fat belly drawn to a fine point (y: up from the tip)
-  brush.add(new THREE.Mesh(lathe([[0, 0], [0.045, 0.07], [0.13, 0.28], [0.24, 0.58], [0.33, 0.92], [0.33, 1.08], [0.28, 1.3]]), stone));
+  // bristles: a fat belly drawn to a fine point (y: up from the tip), pale dry hair above,
+  // soaked black with ink from about halfway down (bristleTextures)
+  const hair = bristleTextures();
+  const bristles = new THREE.MeshPhysicalMaterial({
+    map: hair.color, roughnessMap: hair.rough, bumpMap: hair.bump, bumpScale: 1.6,
+    roughness: 1,
+    envMapIntensity: 0.4, // (or the wet ink mirrors the room, and reads as silver, not black)
+  });
+  brush.add(new THREE.Mesh(lathe([[0, 0], [0.045, 0.07], [0.13, 0.28], [0.24, 0.58], [0.33, 0.92], [0.33, 1.08], [0.28, 1.3]], 128), bristles));
   brush.add(new THREE.Mesh(lathe([[0.27, 1.28], [0.3, 1.34], [0.3, 1.78], [0.24, 1.84]]), ferruleStone));
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 11, 48, 1, false), glass);
   handle.position.y = 1.84 + 5.5;
@@ -100,14 +104,14 @@ export function createGreeting(renderer) {
       const tremble = 1 + Math.sin(time * 7) * 0.025 * shown;
       drop.scale.set(r / tremble, r * 1.12 * tremble, r / tremble);
     } else {
-      // let go: it falls, and comes toward you, stretching as it goes; you follow it down
+      // let go: it falls straight down, quickening, stretching as it goes; and you sink after
+      // it, a moment behind, looking down on it as it drops away into the dark
       const t = (falling.t += dt);
       const k = Math.min(t / FALL_TIME, 1);
-      // (down with gravity, quickening; and in toward you, ending just before your eyes)
       dropPos.copy(falling.from);
-      dropPos.y += (LAND.y - falling.from.y) * k * k;
-      dropPos.z += (LAND.z - falling.from.z) * (k * k * (3 - 2 * k));
-      dropPos.x += (LAND.x - falling.from.x) * k;
+      dropPos.y += (DROP_TO - falling.from.y) * k * k;
+      const follow = Math.pow(k, 2.4);
+      camera.position.set(0, (DROP_TO + 1.8) * follow, (falling.from.z + 1.1) * follow);
       const stretch = 1 + 0.35 * Math.min(1, k * 2);
       drop.scale.set(r / Math.sqrt(stretch), r * stretch, r / Math.sqrt(stretch));
       brush.position.y = TIP.y + Math.sin(Math.min(t * 6, Math.PI)) * 0.08 * Math.exp(-t * 2); // (the brush springs up)
@@ -120,7 +124,8 @@ export function createGreeting(renderer) {
 
     // where you look: up the brush while you wait (drifting a touch), then after the drop
     const want = falling ? dropPos : LOOK.clone().add(new THREE.Vector3(Math.sin(time * 0.2) * 0.15, Math.sin(time * 0.27) * 0.1, 0));
-    look.lerp(want, 1 - Math.exp(-dt * (falling ? 12 : 2)));
+    if (falling) look.copy(dropPos); // (your eyes stay on it as it falls)
+    else look.lerp(want, 1 - Math.exp(-dt * 2));
     camera.lookAt(look);
 
     bubbles.update(dt, camera);
@@ -168,6 +173,96 @@ export function createGreeting(renderer) {
       scene.environment?.dispose();
     },
   };
+}
+
+/**
+ * The bristles' textures, laid out as the lathe's uv (x: round the brush, y: up from the tip):
+ * fine strands of pale hair, and ink soaked up them from the tip to about halfway, its edge
+ * ragged where it has wicked further up some strands than others. Wet ink is glossy, dry hair
+ * matte (rough); the strands stand up a little (bump).
+ */
+function bristleTextures() {
+  const W = 512, H = 1024;
+  const make = () => {
+    const c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    return [c, c.getContext("2d")];
+  };
+  const [cc, col] = make();
+  const [rc, rough] = make();
+  const [bc, bump] = make();
+  // (canvas top = up by the ferrule, bottom = the tip)
+  col.fillStyle = "#cbbd9f";
+  col.fillRect(0, 0, W, H);
+  rough.fillStyle = "#c8c8c8"; // dry: matte
+  rough.fillRect(0, 0, W, H);
+  bump.fillStyle = "#808080";
+  bump.fillRect(0, 0, W, H);
+
+  const rnd = Math.random;
+  const STRANDS = 900;
+  for (let i = 0; i < STRANDS; i++) {
+    const x = rnd() * W;
+    const w = 0.6 + rnd() * 1.4;
+    const sway = (rnd() - 0.5) * 6;
+    // the hair: lighter and darker strands
+    const shade = 150 + rnd() * 90;
+    col.strokeStyle = `rgba(${shade + 20}, ${shade + 8}, ${shade - 20}, ${0.35 + rnd() * 0.4})`;
+    col.lineWidth = w;
+    strand(col, x, sway, 0, H);
+    bump.strokeStyle = `rgba(255, 255, 255, ${0.25 + rnd() * 0.35})`;
+    bump.lineWidth = w;
+    strand(bump, x, sway, 0, H);
+    // the ink: up this strand from the tip, to its own height (the wicking edge)
+    const wet = H * (0.5 + rnd() * 0.12 + Math.sin(x * 0.03) * 0.04); // canvas px up from the tip
+    const top = H - wet;
+    const grad = col.createLinearGradient(0, top - 40, 0, top + 30);
+    grad.addColorStop(0, "rgba(12, 13, 16, 0)");
+    grad.addColorStop(1, "rgba(12, 13, 16, 0.97)");
+    col.strokeStyle = grad;
+    col.lineWidth = w + 1.2;
+    strand(col, x, sway, top - 40, H);
+    const rg = rough.createLinearGradient(0, top - 30, 0, top + 20);
+    rg.addColorStop(0, "rgba(80, 80, 80, 0)");
+    rg.addColorStop(1, "rgba(80, 80, 80, 1)"); // wet: glossy
+    rough.strokeStyle = rg;
+    rough.lineWidth = w + 2;
+    strand(rough, x, sway, top - 30, H);
+  }
+  // soaked through below the edge: a solid wash of ink under the strands, so no hair shows
+  // through at the tip (fading out up toward the edge)
+  const under = col.createLinearGradient(0, H * 0.55, 0, H);
+  under.addColorStop(0, "rgba(10, 11, 14, 0)");
+  under.addColorStop(0.35, "rgba(10, 11, 14, 0.85)");
+  under.addColorStop(1, "rgba(8, 9, 11, 1)");
+  col.fillStyle = under;
+  col.fillRect(0, 0, W, H);
+  const roughUnder = rough.createLinearGradient(0, H * 0.6, 0, H);
+  roughUnder.addColorStop(0, "rgba(80, 80, 80, 0)");
+  roughUnder.addColorStop(0.4, "rgba(80, 80, 80, 1)");
+  rough.fillStyle = roughUnder;
+  rough.fillRect(0, 0, W, H);
+
+  const tex = (c, srgb) => {
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  return { color: tex(cc, true), rough: tex(rc, false), bump: tex(bc, false) };
+}
+
+/** One hair: a long, faintly wavering line down the canvas (wrapping round at the sides). */
+function strand(g, x, sway, from, to) {
+  for (const dx of [0, -512, 512]) {
+    if (x + dx < -10 || x + dx > 522) continue;
+    g.beginPath();
+    g.moveTo(x + dx, from);
+    g.bezierCurveTo(x + dx + sway, from + (to - from) * 0.33, x + dx - sway, from + (to - from) * 0.66, x + dx + sway * 0.3, to);
+    g.stroke();
+  }
 }
 
 /** The dim grey backdrop: darker below, a soft light behind the brush. */

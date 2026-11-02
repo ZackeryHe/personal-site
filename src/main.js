@@ -134,7 +134,7 @@ async function boot() {
   greeting?.progress(1);
   if (skipGreeting) loader.dismiss();
   else {
-    // ...until you begin: the drop falls toward you and fills your view with ink; the world
+    // ...until you begin: the drop falls and you follow it down into the ink; the world
     // starts beneath it, its first drop landing at once, and opens out of the ink from there
     await loader.ready({ fall: () => greeting.fall() });
     greeting.dispose();

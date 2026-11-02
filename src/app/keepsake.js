@@ -20,11 +20,10 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
   const touch = matchMedia("(pointer: coarse)").matches; // (no looking round on a touch screen)
   const el = document.createElement("div");
   el.className = "keepsake";
-  el.innerHTML = `<button class="keepsake-copy" type="button"><span class="keepsake-seal" aria-hidden="true"></span><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
+  el.innerHTML = `<button class="keepsake-copy" type="button"><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
   document.body.appendChild(el);
   const label = el.querySelector(".keepsake-label");
   const button = el.querySelector(".keepsake-copy");
-  el.querySelector(".keepsake-seal").textContent = SITE.initials;
   button.title = "Rest your eyes on any view you like: it's yours to keep";
   let saidAt = 0;
   /** What the button says (after a while, it goes back to offering the view you're looking at). */
@@ -95,18 +94,12 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
     }
     ctx.putImageData(img, 0, 0);
 
-    // colophon (题跋): a line in the lower right, and the seal beside it
+    // colophon (题跋): a line in the lower right
     await document.fonts?.ready;
     const s = h * 0.06;
-    const sx = w - s - h * 0.045;
+    const sx = w - h * 0.025; // (the right edge of the lines)
     const sy = h - s - h * 0.05;
-    ctx.fillStyle = "rgba(184, 50, 42, 0.92)";
-    ctx.fillRect(sx, sy, s, s);
-    ctx.fillStyle = "#efe7d6";
-    ctx.font = `600 ${Math.round(s * 0.42)}px "Cormorant Garamond", Georgia, serif`;
-    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(SITE.initials, sx + s / 2, sy + s / 2 + 1);
     const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
     ctx.fillStyle = "rgba(29, 33, 40, 0.72)";
     ctx.textAlign = "right";
