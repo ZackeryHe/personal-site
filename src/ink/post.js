@@ -18,8 +18,10 @@ const fragmentShader = /* glsl */ `
   uniform float uNear, uFar;
   uniform float uSoft; // 0 → 1: sitting at the lookout, the distant trees soften
   uniform vec3 uPaper, uInk, uSketchCol;
+  // the noise that stays put on the screen, baked once per size (bakeShader, below):
+  // A: wobble x, wobble y, brush, dash   B: grove strokes, granulation, paper ×, paper −
+  uniform sampler2D tNoiseA, tNoiseB;
   varying vec2 vUv;
-  ${noise2}
 
   float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
   float isSketch(float a) { return step(0.25, a) * step(a, 0.75); }
@@ -33,7 +35,9 @@ const fragmentShader = /* glsl */ `
     vec2 p = vUv * vec2(aspect, 1.0);
 
     // 1. Hand-painted wobble
-    vec2 wob = vec2(fbm2(p * 5.0), fbm2(p * 5.0 + 11.3)) - 0.5;
+    vec4 nA = texture2D(tNoiseA, vUv);
+    vec4 nB = texture2D(tNoiseB, vUv);
+    vec2 wob = nA.xy - 0.5;
     vec2 uv = vUv + wob * 0.007;
 
     vec3 col = texture2D(tColor, uv).rgb;
@@ -73,7 +77,7 @@ const fragmentShader = /* glsl */ `
         // its contour: along the blurred edge of the grove, where what's beside it is far behind
         float band = smoothstep(0.06, 0.32, cover) * (1.0 - smoothstep(0.62, 0.94, cover));
         float behind = smoothstep(1.15, 1.45, openFar / treeNear);
-        float strokes = mix(0.4, 1.0, smoothstep(0.3, 0.7, fbm2(p * 22.0 + 7.0))); // (broken, like a brush's)
+        float strokes = mix(0.4, 1.0, smoothstep(0.3, 0.7, nB.x)); // (broken, like a brush's)
         groveLine = band * behind * strokes * uSoft * (1.0 - smoothstep(170.0, 320.0, treeNear));
       }
     }
@@ -95,7 +99,7 @@ const fragmentShader = /* glsl */ `
     float dist = 1.0 / ic;
     float edge = smoothstep(0.02, 0.1, lap);
     float inkGate = smoothstep(0.06, 0.25, max(d, blur));
-    float brush = smoothstep(0.35, 0.65, fbm2(p * 18.0 + 4.0)); // breaks lines into strokes
+    float brush = smoothstep(0.35, 0.65, nA.z); // breaks lines into strokes
     float line = edge * inkGate * mix(0.35, 1.0, brush) * (1.0 - smoothstep(40.0, 150.0, dist));
 
     // 3b. Sketch (白描): things the ink hasn't reached yet are flagged with alpha 0.5
@@ -106,7 +110,7 @@ const fragmentShader = /* glsl */ `
     sk = max(sk, isSketch(texture2D(tColor, uv - vec2(px.x * 1.5, 0.0)).a));
     sk = max(sk, isSketch(texture2D(tColor, uv + vec2(0.0, px.y * 1.5)).a));
     sk = max(sk, isSketch(texture2D(tColor, uv - vec2(0.0, px.y * 1.5)).a));
-    float dash = smoothstep(0.32, 0.6, fbm2(p * 40.0 + 9.0));
+    float dash = smoothstep(0.32, 0.6, nA.w);
     float sketch = edge * sk * (1.0 - inkGate) * mix(0.15, 1.0, dash)
                  * (1.0 - smoothstep(28.0, 45.0, dist));
 
@@ -116,12 +120,36 @@ const fragmentShader = /* glsl */ `
     c = mix(c, uSketchCol, sketch * 0.7);
 
     // 4. Granulation (pigment settling into paper tooth), only inside pigment
-    float gran = noise2(vUv * uRes * 0.35);
+    float gran = nB.y;
     c *= mix(1.0, 0.8 + 0.3 * gran, d);
 
-    // 5. Paper: large soft stains + fine tooth + long xuan-paper fibres
-    c *= 0.95 + 0.07 * fbm2(p * 3.0);
-    c -= (noise2(vUv * uRes * 0.9) - 0.5) * 0.03;
+    // 5. Paper: stains, tooth, fibres and the aged vignette (all baked: see bakeShader)
+    c = c * nB.z - nB.w;
+
+    gl_FragColor = vec4(c, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+// Bakes the noise that stays put on the screen (it depends only on where on the screen you
+// are), so the watercolour pass reads it instead of computing a dozen fbm's per pixel.
+// Drawn twice: uPart 0 → tNoiseA, uPart 1 → tNoiseB (see the uniforms above).
+const bakeShader = /* glsl */ `
+  uniform vec2 uRes;
+  uniform float uPart;
+  varying vec2 vUv;
+  ${noise2}
+  void main() {
+    float aspect = uRes.x / uRes.y;
+    vec2 p = vUv * vec2(aspect, 1.0);
+    if (uPart < 0.5) {
+      gl_FragColor = vec4(fbm2(p * 5.0), fbm2(p * 5.0 + 11.3), fbm2(p * 18.0 + 4.0), fbm2(p * 40.0 + 9.0));
+      return;
+    }
+    // paper: large soft stains + fine tooth + long xuan-paper fibres, and the aged vignette,
+    // folded into c = c * mul - sub
+    float stain = 0.95 + 0.07 * fbm2(p * 3.0);
+    float tooth = (noise2(vUv * uRes * 0.9) - 0.5) * 0.03;
     float fib = 0.0;
     for (int k = 0; k < 2; k++) {
       float a = float(k) * 2.1 + 0.4;
@@ -129,14 +157,9 @@ const fragmentShader = /* glsl */ `
       fib += smoothstep(0.8, 0.95, noise2(vec2(r.x * 14.0, r.y * 170.0) + float(k) * 13.7));
     }
     fib *= smoothstep(0.45, 0.7, fbm2(p * 2.5 + 5.0)); // fibres only in patches
-    c *= 1.0 - fib * 0.012;
-
-    // 6. Aged vignette
     float v = 1.0 - smoothstep(0.35, 1.2, length((vUv - 0.5) * vec2(aspect, 1.0)));
-    c *= mix(0.85, 1.0, v);
-
-    gl_FragColor = vec4(c, 1.0);
-    #include <colorspace_fragment>
+    float after = (1.0 - fib * 0.012) * mix(0.85, 1.0, v);
+    gl_FragColor = vec4(fbm2(p * 22.0 + 7.0), noise2(vUv * uRes * 0.35), stain * after, tooth * after);
   }
 `;
 
@@ -161,10 +184,27 @@ export class WatercolorPass {
         uInk: { value: INK },
         uSketchCol: { value: new THREE.Color("#6e5d4a") }, // light sepia underdrawing
         uSoft: globals.uSoft, // (shared: set by app/walker.js as you sit)
+        tNoiseA: { value: null },
+        tNoiseB: { value: null },
       },
     });
+    const noiseTarget = () => new THREE.WebGLRenderTarget(1, 1, {
+      type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false,
+    });
+    this.noise = [noiseTarget(), noiseTarget()];
+    this.material.uniforms.tNoiseA.value = this.noise[0].texture;
+    this.material.uniforms.tNoiseB.value = this.noise[1].texture;
+    this.bakeMaterial = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader: bakeShader,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: { uRes: { value: new THREE.Vector2(1, 1) }, uPart: { value: 0 } },
+    });
+    this.bakedAt = new THREE.Vector2(0, 0); // the size the noise was last baked at
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
     quad.frustumCulled = false;
+    this.quad = quad;
     this.scene = new THREE.Scene();
     this.scene.add(quad);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -184,6 +224,8 @@ export class WatercolorPass {
 
   /** Paint the scene: to the screen, or into `output` (a render target) if given. */
   render(scene, camera, output = null) {
+    const res = this.material.uniforms.uRes.value;
+    if (!this.bakedAt.equals(res)) this.bake(res);
     this.material.uniforms.uNear.value = camera.near;
     this.material.uniforms.uFar.value = camera.far;
     this.renderer.setRenderTarget(this.target);
@@ -193,7 +235,23 @@ export class WatercolorPass {
     this.renderer.setRenderTarget(null);
   }
 
+  /** Bake the screen's still noise at this size (only when the size changes). */
+  bake(res) {
+    this.bakedAt.copy(res);
+    this.bakeMaterial.uniforms.uRes.value.copy(res);
+    this.quad.material = this.bakeMaterial;
+    for (let part = 0; part < 2; part++) {
+      this.noise[part].setSize(res.x, res.y);
+      this.bakeMaterial.uniforms.uPart.value = part;
+      this.renderer.setRenderTarget(this.noise[part]);
+      this.renderer.render(this.scene, this.camera);
+    }
+    this.quad.material = this.material;
+  }
+
   dispose() {
+    this.noise.forEach((t) => t.dispose());
+    this.bakeMaterial.dispose();
     this.target.depthTexture?.dispose();
     this.target.dispose();
     this.material.dispose();

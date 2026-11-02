@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { noise3 } from "./noise.js";
+import { noise3, noiseTexture3D } from "./noise.js";
 import { LAND, RIM_FADE } from "../world/path.js";
 
 export const PAPER = new THREE.Color("#efe7d6");
@@ -46,6 +46,7 @@ export const globals = {
   uLand: { value: new THREE.Vector4(0, -1e5, 0, -1) },
   uLandHeight: { value: 0 },
   uSunGlow: { value: SUN_GLOW },
+  tNoise3: { value: noiseTexture3D() },          // the lattice the 3D noise reads (noise.js)
 };
 
 const CHANNELS = {

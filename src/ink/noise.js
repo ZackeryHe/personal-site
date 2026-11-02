@@ -1,4 +1,33 @@
 // Shared GLSL noise helpers.
+import * as THREE from "three";
+
+const NOISE3_SIZE = 128;
+// the same hash the 3D noise always used, worked out once per lattice point in the GPU's 32-bit
+// floats, so the lattice from -N/2 to N/2 matches the old noise exactly (the clouds, mist and
+// washes, which are broad, stay where they were painted; only fine grain ever wraps round)
+const f32 = Math.fround;
+const fract = (x) => f32(x - Math.floor(x));
+// (the hash's first step works on each axis alone, so it's done once per axis, not per point)
+const axis = (v) => f32(fract(f32(f32(v * f32(0.3183099)) + f32(0.1))) * 17);
+const hash3 = (x, y, z) => fract(f32(f32(f32(x * y) * z) * f32(f32(x + y) + z)));
+
+/** The lattice for noise3 (bound as globals.tNoise3 in material.js). */
+export function noiseTexture3D() {
+  const N = NOISE3_SIZE;
+  const data = new Uint8Array(N * N * N);
+  // texel t holds lattice point t, or t - N past halfway
+  const h = Array.from({ length: N }, (_, t) => axis(t < N / 2 ? t : t - N));
+  for (let z = 0, k = 0; z < N; z++)
+    for (let y = 0; y < N; y++)
+      for (let x = 0; x < N; x++) data[k++] = Math.round(hash3(h[x], h[y], h[z]) * 255);
+  const tex = new THREE.Data3DTexture(data, N, N, N);
+  tex.format = THREE.RedFormat;
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.wrapS = tex.wrapT = tex.wrapR = THREE.RepeatWrapping;
+  tex.unpackAlignment = 1;
+  tex.needsUpdate = true;
+  return tex;
+}
 
 export const noise2 = /* glsl */ `
   float hash2(vec2 p) {
@@ -20,18 +49,14 @@ export const noise2 = /* glsl */ `
 `;
 
 export const noise3 = /* glsl */ `
-  float hash3(vec3 p) {
-    p = fract(p * 0.3183099 + 0.1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-  }
+  // the lattice's values come from a texture of hash3 (noiseTexture3D, below): one filtered
+  // lookup, placed so the hardware's blend between texels follows the smoothstep curve, does
+  // the work of eight hashes (the pattern repeats every ${NOISE3_SIZE} units)
+  uniform highp sampler3D tNoise3;
   float noise3(vec3 x) {
     vec3 i = floor(x), f = fract(x);
     f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(mix(hash3(i + vec3(0, 0, 0)), hash3(i + vec3(1, 0, 0)), f.x),
-                   mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y),
-               mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x),
-                   mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+    return texture(tNoise3, (i + f + 0.5) / ${NOISE3_SIZE}.0).r;
   }
   float fbm3(vec3 p) {
     float v = 0.0, a = 0.5;
