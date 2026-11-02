@@ -8,26 +8,34 @@ export function build({ scene, P, places, rng }) {
   const rand = rng(11);
   const dummy = new THREE.Object3D();
 
-  // ---------- Ground: the ink bleeds out from your feet. It ends at the cliff. ----------
+  // ---------- Ground: the ink bleeds out from your feet. Level through the garden, it rises to
+  // the canyon's rim (P.groundAt) and ends there at the cliff. Laid out along the rim (u, metres
+  // along it) and inland from its broken edge (rows bunched up toward the edge, where it climbs). ----------
+  const right = new THREE.Vector3(-P.endDir.z, 0, P.endDir.x);
+  const wobble = (u) => 0.6 * Math.sin(u * 0.31) + 0.3 * Math.sin(u * 0.83 + 1.7); // ± ~1 m, out and in
+  const edgeAt = (u, out) => out.copy(P.brink).addScaledVector(right, u).addScaledVector(P.endDir, wobble(u));
+  const ALONG = 900;
+  const COLS = 240;
   {
-    const cols = 150;
-    const rows = 36;
+    const ROWS = 64;
+    const INLAND = 650;
     const positions = [];
     const uvs = [];
     const index = [];
-    for (let i = 0; i <= cols; i++) {
-      const x = -450 + (i / cols) * 900;
-      const z0 = Math.min(Math.max(P.edgeZ(x), -450), 449); // far to the east the canyon swallows it all
-      for (let j = 0; j <= rows; j++) {
-        const v = j / rows;
-        positions.push(x, 0, z0 + (450 - z0) * v * v); // rows bunch up near the edge (where land ends)
-        uvs.push(i / cols, v);
+    const p = new THREE.Vector3();
+    for (let i = 0; i <= COLS; i++) {
+      const u = -ALONG / 2 + (i / COLS) * ALONG;
+      for (let j = 0; j <= ROWS; j++) {
+        const v = j / ROWS;
+        edgeAt(u, p).addScaledVector(P.endDir, -INLAND * Math.pow(v, 2.2));
+        positions.push(p.x, P.groundAt(p.x, p.z), p.z);
+        uvs.push(i / COLS, v);
       }
     }
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        const a = i * (rows + 1) + j;
-        const b = a + rows + 1;
+    for (let i = 0; i < COLS; i++) {
+      for (let j = 0; j < ROWS; j++) {
+        const a = i * (ROWS + 1) + j;
+        const b = a + ROWS + 1;
         index.push(a, a + 1, b, b, a + 1, b + 1);
       }
     }
@@ -41,6 +49,47 @@ export function build({ scene, P, places, rng }) {
       edge: 0.02, rimWidth: 0.06, rim: 0.8, near: 4, far: 40, minFar: 0, density: 0.16,
       mist: 0.01, grain: 0.35, sil: 0, side: THREE.DoubleSide,
     })));
+  }
+
+  // ---------- The cliff under the rim: a rock face dropping from the edge into the canyon's cloud ----------
+  {
+    const ROWS = 14;
+    const DROP = 34;
+    const positions = [];
+    const uvs = [];
+    const index = [];
+    const p = new THREE.Vector3();
+    for (let i = 0; i <= COLS; i++) {
+      const u = -ALONG / 2 + (i / COLS) * ALONG;
+      edgeAt(u, p);
+      const top = P.groundAt(p.x, p.z);
+      for (let j = 0; j <= ROWS; j++) {
+        const v = j / ROWS;
+        // stepping out and back in as it falls: ledges and bulges
+        const bulge = 0.9 * Math.sin(u * 0.13 + v * 7) * Math.sin(v * Math.PI) + 0.5 * Math.sin(u * 0.47 - v * 11);
+        positions.push(p.x + P.endDir.x * bulge, top - 0.05 - DROP * v, p.z + P.endDir.z * bulge);
+        uvs.push(i / COLS, v);
+      }
+    }
+    for (let i = 0; i < COLS; i++) {
+      for (let j = 0; j < ROWS; j++) {
+        const a = i * (ROWS + 1) + j;
+        const b = a + ROWS + 1;
+        index.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(index);
+    g.computeVertexNormals();
+    const face = new THREE.Mesh(g, inkMaterial({
+      channel: "far", climb: 0, noiseScale: 0.06, noiseAmp: 0.3, near: 20, far: 300, minFar: 0.2, density: 0.95,
+      grain: 0.5, shade: 0.35, sil: 0.4, wash: 1, glow: 0.9, side: THREE.DoubleSide,
+      mistBase: places.rim - 20, mist: places.rim - 6, mistFloor: 0, // fading down into the cloud
+    }));
+    face.frustumCulled = false;
+    scene.add(face);
   }
 
   // a lumpy stone (displacement keyed by position so the mesh stays watertight)
@@ -65,6 +114,7 @@ export function build({ scene, P, places, rng }) {
     const t = i / 150;
     const p = P.path.getPointAt(t).addScaledVector(P.sideAt(t), rand.range(-0.8, 0.8));
     if (P.blocked(p.x, p.z, { by: "grass" })) continue; // not under the bridge
+    if (P.slopeAt(p.x, p.z) > 0.2) continue;           // nor up the rim's face (stone steps climb it)
     if (Math.hypot(p.x - bench.x, p.z - bench.z) < 9) continue;
     stoneSpots.push(p);
   }
@@ -74,7 +124,7 @@ export function build({ scene, P, places, rng }) {
   }), stoneSpots.length);
   stoneSpots.forEach((p, i) => {
     const s = rand.range(0.35, 0.6);
-    dummy.position.copy(p);
+    dummy.position.copy(p).setY(P.groundAt(p.x, p.z));
     dummy.rotation.set(0, rand() * Math.PI, 0);
     dummy.scale.set(s * rand.range(0.8, 1.2), s * rand.range(0.25, 0.4), s * rand.range(0.6, 0.95));
     dummy.updateMatrix();
@@ -86,7 +136,8 @@ export function build({ scene, P, places, rng }) {
   // ---------- Grass tufts and reeds: quick brush flicks ----------
   const blades = [];
   const tuft = (x, z, n, height, spread) => {
-    if (P.blocked(x, z, { by: "grass" }) || P.overCliff(x, z, 1)) return;
+    if (P.blocked(x, z, { by: "grass" }) || P.overCliff(x, z, 1) || P.slopeAt(x, z) > 0.45) return;
+    if (bench && Math.hypot(x - bench.x, z - bench.z) < 9) return; // the crest by the bench: just the view
     for (let i = 0; i < n; i++) {
       blades.push({
         x: x + rand.range(-0.15, 0.15),
@@ -153,7 +204,7 @@ export function build({ scene, P, places, rng }) {
     blades.length
   );
   blades.forEach((b, i) => {
-    dummy.position.set(b.x, 0, b.z);
+    dummy.position.set(b.x, P.groundAt(b.x, b.z), b.z);
     dummy.rotation.set(b.tiltX, rand() * Math.PI, b.tiltZ);
     dummy.scale.set(1, b.h, 1);
     dummy.updateMatrix();
@@ -164,7 +215,7 @@ export function build({ scene, P, places, rng }) {
 
   // ---------- The stream: from the waterfall's pool, under the bridge, away to the right ----------
   const from = R.start;
-  const to = 100; // it wanders off to the south-east, well before the cliff
+  const to = 70; // it wanders off to the south-east across the meadows, before the land rises
   const stream = new THREE.Mesh(
     new THREE.PlaneGeometry(to - from, 7).rotateX(-Math.PI / 2),
     inkMaterial({

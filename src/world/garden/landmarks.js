@@ -109,16 +109,13 @@ function carvedRock(scene, rand, { pos, faces, scale, text, textOpts, plate, tur
   return { group: g, lettering };
 }
 
-// The entrance: a boulder with your name; by the lotus pond, smaller ones for GitHub,
-// LinkedIn and Email (click them); and the scholar's rocks around the garden.
+// By the lotus pond, small carved rocks for GitHub, LinkedIn and Email (click them); and the
+// scholar's rocks around the garden.
 export function build({ scene, P, places, rng }) {
   const rand = rng(81);
-  const start = P.at(0);
-
-  carvedRock(scene, rand, {
-    pos: places.rock.pos, faces: start, turn: -0.25,
-    scale: [2.1, 1.5, 1.15], plate: [2.6, 0.975], text: SITE.name, textOpts: { seal: SITE.initials },
-  });
+  // (the boulder with your name that stood at the entrance drew these from the stream: skipped,
+  // so the rocks after it keep their shapes)
+  for (let i = 0; i < 514; i++) rand();
 
   // Contacts: smaller rocks on the pond's near shore, carved with their names. Clicking one opens it.
   places.clickables = [];

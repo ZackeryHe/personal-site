@@ -21,7 +21,7 @@ const sunShader = {
       float r = length(q);
 
       // the glow: strongest around the disc, and a broad warm band along the horizon
-      float glow = exp(-max(r - 1.0, 0.0) * 1.15) * 0.62 + exp(-length(q * vec2(0.3, 1.1)) * 0.75) * 0.42;
+      float glow = exp(-max(r - 1.0, 0.0) * 1.15) * 0.5 + exp(-length(q * vec2(0.3, 1.1)) * 0.75) * 0.34;
       glow *= 0.8 + 0.4 * fbm2(q * 0.8 + vec2(uTime * 0.008, 3.0)); // broken, like a wash
       vec2 edge = abs(vUv * 2.0 - 1.0);
       glow *= (1.0 - smoothstep(0.55, 1.0, edge.x)) * (1.0 - smoothstep(0.5, 1.0, edge.y)); // to bare paper at its edges
@@ -33,7 +33,9 @@ const sunShader = {
       float mottle = fbm2(q * 3.0 + 2.0) - 0.5;
       vec3 red = mix(uRed, uRedDeep, clamp(smoothstep(0.15, 1.0, rr) * 0.8 + mottle * 0.35, 0.0, 1.0));
       red = mix(red, uRedDeep * 0.82, exp(-pow((1.0 - rr) / 0.06, 2.0)) * 0.55); // pooled at the rim
-      col = mix(col, red, disc);
+      // laid in as a wash, not opaque: the paper shows through, more where the pigment is thin
+      float body = 0.62 + 0.2 * smoothstep(0.2, 1.0, rr) + 0.16 * fbm2(q * 5.0 + 9.0);
+      col = mix(col, red, disc * body);
 
       // bands of cloud drifting across it: a long one low across the disc, a thin one higher up
       float b1 = (q.y + 0.4 + sin(q.x * 1.1 + uTime * 0.03) * 0.07) / 0.12;
@@ -114,8 +116,8 @@ export function build({ scene, places, rng }) {
         uPaper: globals.uPaper,
         uSunGlow: globals.uSunGlow,
         uInk: { value: new THREE.Color("#5d5560") },
-        uRed: { value: new THREE.Color("#dc5f3c") },
-        uRedDeep: { value: new THREE.Color("#b5332a") },
+        uRed: { value: new THREE.Color("#df6a46") },
+        uRedDeep: { value: new THREE.Color("#bf3d2f") },
         uIntro: globals.uIntro,
         uTime: globals.uTime,
         uSize: { value: new THREE.Vector2(...size) },

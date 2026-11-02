@@ -4,7 +4,7 @@ import { globals, INK } from "../ink/material.js";
 
 // The ink: the opening drop, ink falling from where you stand as you walk (and
 // thrown ahead when you hurry), and drops you flick by clicking the ground.
-export function createDrops({ field, scene, camera, walker, world, instant = false, onFlick = null }) {
+export function createDrops({ field, scene, camera, walker, world, instant = false, inked = false, onFlick = null }) {
   const { path, pathLen } = world;
   const C = CONFIG.ink;
   const I = CONFIG.intro;
@@ -33,7 +33,11 @@ export function createDrops({ field, scene, camera, walker, world, instant = fal
     if (introStart === null) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    if (!ray.ray.intersectPlane(ground, hit)) return; // clicked the sky
+    ground.constant = -world.groundAt(camera.position.x, camera.position.z);
+    for (let k = 0; k < 3; k++) {
+      if (!ray.ray.intersectPlane(ground, hit)) return; // clicked the sky
+      ground.constant = -world.groundAt(hit.x, hit.z);  // ...then the ground's height there
+    }
     if (hit.distanceTo(camera.position) > 160) return;
     land(hit.x, hit.z, C.flick, "flick");
     onFlick?.(hit.x, hit.z, e);
@@ -51,10 +55,16 @@ export function createDrops({ field, scene, camera, walker, world, instant = fal
 
     update(t) {
       const p = walker.point;
-      if (introStart === null && instant) {
-        // dev: pretend the opening happened long ago
+      if (introStart === null && (instant || inked)) {
+        // dev: pretend the opening happened long ago (?inked: and that you walked the whole way)
         introStart = t - 30;
         field.add(p.x, p.z, t - 30, 1, "walk");
+        if (inked) {
+          for (let s = 0; s <= pathLen; s += 6) {
+            const q = path.getPointAt(s / pathLen);
+            if (field.nearest(q.x, q.z) > 3) field.add(q.x, q.z, t - 60, 1, "walk");
+          }
+        }
         lastStep.copy(p);
       } else if (introStart === null) {
         // the opening: a drop falls just in front of you, lands, and the world blooms

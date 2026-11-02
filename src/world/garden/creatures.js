@@ -77,7 +77,7 @@ export function flutterAround(b, time) {
   const t = time * b.speed + b.phase;
   nextPos.set(
     b.center.x + Math.sin(t * 0.7) * b.radius + Math.sin(t * 1.9) * 0.4,
-    0.6 + Math.sin(t * 1.3) * 0.35 + Math.sin(t * 3.1) * 0.12,
+    b.center.y + 0.6 + Math.sin(t * 1.3) * 0.35 + Math.sin(t * 3.1) * 0.12,
     b.center.z + Math.cos(t * 0.53) * b.radius + Math.cos(t * 2.3) * 0.4
   );
   b.group.lookAt(nextPos);

@@ -80,7 +80,7 @@ export function createColour({ renderer, scene, walker, world }) {
     const old = sprouts[slot];
     if (old) heads[old.c].setMatrixAt(slot, hidden); // recycled: hide its old flower
     sprouts[slot] = {
-      slot, x, z, born, settled: false,
+      slot, x, z, y: world.groundAt(x, z), born, settled: false,
       h: rand.range(0.3, 0.7), size: rand.range(0.8, 1.2), c: Math.floor(rand() * PETALS.length),
       tiltX: rand.range(-0.25, 0.25), tiltZ: rand.range(-0.25, 0.25), yaw: rand() * Math.PI * 2,
       faceX: rand.range(0.5, 1.0), faceYaw: Math.atan2(viewer.x - x, viewer.z - z), // flowers open toward you
@@ -96,7 +96,7 @@ export function createColour({ renderer, scene, walker, world }) {
   const m4 = new THREE.Matrix4();
   function place(s, now) {
     const g = Math.max(1e-3, easeOutBack(clamp01((now - s.born) / 1.3))); // springs up, overshoots
-    pos.set(s.x, 0, s.z);
+    pos.set(s.x, s.y, s.z);
     q.setFromEuler(e.set(s.tiltX, s.yaw, s.tiltZ, "YXZ"));
     stems.setMatrixAt(s.slot, m4.compose(pos, q, scl.set(1, s.h * g, 1)));
     for (let j = 0; j < 2; j++) {
@@ -173,7 +173,7 @@ export function createColour({ renderer, scene, walker, world }) {
       if (world.overCliff(b.x, b.z, 1) || nearBench(b.x, b.z)) return;
       for (let j = 0; j < 2; j++) {
         const f = flies[nextFly++ % flies.length];
-        f.center.set(b.x, 0, b.z);
+        f.center.set(b.x, world.groundAt(b.x, b.z), b.z);
         f.radius = rand.range(1.2, 2.6);
         f.group.visible = true;
       }

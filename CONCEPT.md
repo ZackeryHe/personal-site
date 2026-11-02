@@ -42,21 +42,24 @@ stopped to look.
 
 ## The walk
 
-1. **Your name**, carved in red on a boulder at the entrance, beside a plum tree in blossom.
+1. **The greeting**: while the world is built, a handscroll lies on the table, ink drifting in
+   its paper and a few drops hanging in the air above it. Unroll it: its paper grows to fill
+   the screen, the first drop falls, and your name writes itself in beside a plum in blossom.
 2. **Contacts, at the lotus pond**: three small carved rocks on its near shore, **GitHub ↗**,
    **LinkedIn ↗** and **Email ↗** (click them).
 3. **Experience**: an avenue of stone tablets (碑林), one per role, between whitewashed garden
    walls (粉墙) with dark tile coping, lattice windows (漏窗) and a moon gate (月洞门), bamboo
    peeking over. The waterfall is already visible at the end of it.
 4. **Projects**: stone lanterns, warmly lit, lining the path through the bamboo.
-5. **The waterfall**: you come out of the bamboo facing it. It pours down a ravine into a pool,
-   mist billowing up where it lands; cranes wade in the shallows, a fisherman drifts on the pool,
-   deer graze by its stream, which runs under a stone arch bridge.
-6. **Resume**: across the bridge, the pagoda on the canyon's rim, and the pavilion, its hanging
-   scrolls the pages of your resume.
-7. **The end: nothing built but a stone bench, right at the edge.** The land stops at a cliff
-   with a lone pine on the brink; no flowers grow and no petals fall around the bench, so it's
-   just you and the view. Below, a canyon that is a forest of stone: sheer towers rising out of
+5. **Resume**: at the bamboo's end, the pavilion, its hanging scrolls the pages of your resume,
+   its open front framing the waterfall.
+6. **The waterfall**: it pours down a ravine into a pool, mist billowing up where it lands;
+   cranes wade in the shallows, a fisherman drifts on the pool, deer graze by its stream, which
+   runs under a stone arch bridge, the pagoda on its knoll beyond. Then across the meadows and up
+   stone steps cut into the face of a ridge.
+7. **The end: nothing built but a stone bench, on the rim, right at the edge.** The land stops
+   at a cliff with a lone pine on the brink; no flowers grow and no petals fall around the
+   bench, so it's just you and the view. Below, a canyon that is a forest of stone: sheer towers rising out of
    a sea of cloud (云海) that you look down onto, their feet lost in billowing cloud, their
    ledges and crowns dotted with scrub (点苔, the dabs painters use for distant vegetation) and
    here and there a pine, a natural stone arch (天生桥) between two of them, a waterfall leaping
@@ -64,8 +67,13 @@ stopped to look.
    paler than the last, to the far ranges and a huge red sun (红日) setting in the saddle between
    them, its warm glow washed across the sky and the haze, cranes gliding across its face. The
    sun is the walk's one big accent of cinnabar, and you catch it from far back: beside the
-   waterfall, behind the pavilion as you cross the bridge. Sit on the bench and you turn round
-   to look back over the way you came; turn your head right round for the canyon and the sun.
+   waterfall, behind the pavilion as you cross the bridge.
+8. **The painting (留念)**: sit on the bench and you turn round, and there's the whole walk laid
+   out below you as one painting, framed by two old pines: the pavilion and the bamboo, the
+   bridge, the waterfall and the pagoda, the ranges behind, and in it the ink you left as you
+   walked and the colour where you stopped to look, so no two are the same. Keep looking and it
+   offers itself: one click and it's on your clipboard, sealed, with a line of colophon. (Turn
+   your head right round and the canyon and the sun are still there.)
 
 Along the way, birds come down to peck ahead of you and scatter as you approach, and rabbits
 sit up in the grass, then bolt. Petals drift down around you: plum blossom early on, gold and
@@ -73,9 +81,8 @@ orange leaves toward the end, where more and more of the trees are turning (colo
 they come out gold, orange and red instead of green). As you near one of your points, your
 head is gently nudged toward it.
 
-The entrance is deliberately a *rock*, not a gate: scenic places in China name
-themselves with inscriptions carved into stone, so it marks the spot without walling
-off the "dropped into nature" feeling. (A moon gate is still an option, see backlog.)
+The entrance is left open: no gate, no carved name stone in the way, just the garden and, far
+off to the right, the red sun you'll walk toward. (A moon gate is still an option, see backlog.)
 
 ## Visual rules (so it stays coherent)
 
@@ -99,7 +106,7 @@ off the "dropped into nature" feeling. (A moon gate is still an option, see back
 ## Idea backlog
 
 - **Moon gate entrance** (圆洞门): a short white wall with a round opening that frames
-  the first view. More "garden", less "wild"; could replace or sit behind the name rock.
+  the first view. More "garden", less "wild".
 
 - **Real content on the tablets, lanterns and scrolls:** each Experience tablet carries a role,
   each lantern a project (click to open it), each scroll a page of the resume.

@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
+import { globals } from "../ink/material.js";
 
 // You: scroll / swipe / arrow keys move you along the path and the mouse turns your
 // head. As you approach one of your points, your head is nudged gently toward it.
 // Stop, and you can crane right round.
 export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
-  const { path, pathLen, heightAt, markers, bench } = world;
+  const { path, pathLen, heightAt, markers, bench, painting, groundAt } = world;
   const W = CONFIG.walk;
   const { lerp, smoothstep, clamp } = THREE.MathUtils;
   const clamp01 = (x) => clamp(x, 0, 1);
@@ -18,6 +19,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let crane = 0;     // -1 craning left … 1 craning right (only while still)
   let nudge = 0;     // radians your head is turned toward a nearby point
   let seated = 0;    // 0 standing → 1 sitting on the bench at the end
+  let anchor = null; // where the mouse was as you sat down: seated, you look around from there
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
   const walk = (metres) => (target = clamp01(target + metres / pathLen));
 
@@ -49,6 +51,8 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   const look = new THREE.Vector3();
   const toPoint = new THREE.Vector3();
   const fwd = new THREE.Vector3();
+  /** Signed angle about +Y that turns direction a onto direction b (both horizontal). */
+  const angleTo = (a, b) => Math.atan2(a.z * b.x - a.x * b.z, a.x * b.x + a.z * b.z);
 
   /**
    * How far to turn toward the nearest point you're approaching: grows as you get
@@ -81,6 +85,11 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     get still() { return still; },
     get crane() { return crane; },
     get seated() { return seated; },
+    /** 0–1: how squarely you're looking at the painting (seated, and not looking away) */
+    get facingPainting() {
+      if (!anchor || seated < 0.98) return 0;
+      return 1 - smoothstep(Math.abs(mouse.sx - anchor.x) + Math.abs(mouse.sy - anchor.y) * 0.5, 0.12, 0.35);
+    },
     point,   // where you are on the path (updated every frame)
     tangent, // which way the path runs
     jumpTo(t) { target = clamp01(t); },
@@ -89,16 +98,32 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     gazePoint(out) {
       const [near, far] = CONFIG.colour.gazeRange;
       camera.getWorldDirection(fwd);
+      const above = camera.position.y - groundAt(camera.position.x, camera.position.z);
       if (fwd.y < -0.03) {
-        const t = camera.position.y / -fwd.y;
-        if (t >= near && t <= far) return out.copy(camera.position).addScaledVector(fwd, t).setY(0);
+        const t = above / -fwd.y;
+        if (t >= near && t <= far) {
+          out.copy(camera.position).addScaledVector(fwd, t);
+          return out.setY(groundAt(out.x, out.z));
+        }
       }
       // looking level or up (e.g. at the mountains): a spot a comfortable distance out in
       // that direction, close enough to watch the flowers come up
-      const t = fwd.y < -0.03 ? clamp(camera.position.y / -fwd.y, near, far) : CONFIG.colour.levelGaze;
+      const t = fwd.y < -0.03 ? clamp(above / -fwd.y, near, far) : CONFIG.colour.levelGaze;
       fwd.y = 0;
       fwd.normalize();
-      return out.copy(camera.position).addScaledVector(fwd, t).setY(0);
+      out.copy(camera.position).addScaledVector(fwd, t);
+      return out.setY(groundAt(out.x, out.z));
+    },
+
+    /** Point a camera at the painting: sitting on the bench, looking back over the walk. */
+    paintingView(cam) {
+      cam.position.copy(bench).setY(bench.y + W.sitHeight);
+      look.copy(cam.position).addScaledVector(painting.facing, 10);
+      look.y += 10 * Math.tan(painting.pitch);
+      cam.up.set(0, 1, 0);
+      cam.lookAt(look);
+      cam.fov = painting.fov;
+      cam.updateProjectionMatrix();
     },
 
     update(dt) {
@@ -114,20 +139,30 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
 
       mouse.sx += (mouse.x - mouse.sx) * Math.min(1, dt * 4);
       mouse.sy += (mouse.y - mouse.sy) * Math.min(1, dt * 4);
-      crane = Math.sign(mouse.sx) * still * smoothstep(Math.abs(mouse.sx), 0.3, 0.75);
+      // craning: turning your head well to the side (seated: away from the painting)
+      const turned = mouse.sx - (anchor ? anchor.x : 0);
+      crane = Math.sign(turned) * still * smoothstep(Math.abs(turned), 0.3, 0.75);
 
       path.getPointAt(progress, point);
       path.getTangentAt(progress, tangent);
       right.crossVectors(tangent, up).normalize();
       // at the very end you sit down on the bench (and get up again when you scroll back)
       const wantSit = bench && target > 0.999 && progress > 0.985 ? 1 : 0;
+      if (wantSit && !anchor) anchor = { x: mouse.sx, y: mouse.sy };
       seated += (wantSit - seated) * Math.min(1, dt * (wantSit ? W.sitEase : 3));
+      if (!wantSit && seated < 0.02) anchor = null;
       const sit = seated * seated * (3 - 2 * seated);
       nudge += (nudgeTarget() * (1 - sit) - nudge) * Math.min(1, dt * W.nudgeEase);
-      // seated, you turn round to look back the way you came (sweeping past the lone pine
-      // on your left), and the mouse can turn you right round to the canyon again
-      const range = lerp(lerp(W.lookYaw, W.lookYawStill, still), Math.PI, sit);
-      const yaw = nudge + sit * W.sitTurn - shaped(mouse.sx) * range;
+      // walking: the path ahead, your head turned by the mouse (and nudged toward your points)
+      let yaw = nudge - shaped(mouse.sx) * lerp(W.lookYaw, W.lookYawStill, still);
+      let lookY = -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp;
+      if (sit > 0) {
+        // seated, you turn round to the painting, the same view wherever you were looking; from
+        // there the mouse looks around (right round to the canyon at the edges of the screen)
+        const around = -shaped(clamp(mouse.sx - anchor.x, -1, 1)) * Math.PI;
+        yaw = lerp(yaw, angleTo(tangent, painting.facing) + around, sit);
+        lookY = lerp(lookY, 10 * Math.tan(painting.pitch) - (mouse.sy - anchor.y) * W.lookPitchStill, sit);
+      }
       dir.copy(tangent).applyAxisAngle(up, yaw);
       const bob = Math.sin(progress * pathLen * 1.2) * W.bob * (1 - sit); // gentle footsteps
 
@@ -135,14 +170,23 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       if (sit > 0) {
         camera.position.x = lerp(camera.position.x, bench.x, sit);
         camera.position.z = lerp(camera.position.z, bench.z, sit);
-        camera.position.y = lerp(camera.position.y, W.sitHeight, sit);
+        camera.position.y = lerp(camera.position.y, bench.y + W.sitHeight, sit);
       }
       // craning: your head leans out toward the side you're looking
-      camera.position.addScaledVector(right, crane * W.craneLean).addScaledVector(dir, Math.abs(crane) * 0.12);
+      camera.position.addScaledVector(right, crane * W.craneLean * (1 - sit)).addScaledVector(dir, Math.abs(crane) * 0.12 * (1 - sit));
       look.copy(camera.position).addScaledVector(dir, 10);
-      look.y += -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp;
+      look.y += lookY;
       camera.lookAt(look);
-      camera.rotateZ(-crane * W.craneRoll); // a slight head tilt
+      camera.rotateZ(-crane * W.craneRoll * (1 - sit)); // a slight head tilt
+      // turned to the painting, it's seen as a painter frames it: a longer lens, layers drawn
+      // closer together, the distance less faded
+      const framed = sit * (anchor ? this.facingPainting * 0.6 + 0.4 : 0);
+      const fov = lerp(CONFIG.render.fov, painting.fov, framed);
+      if (Math.abs(camera.fov - fov) > 0.01) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+      globals.uAtmScale.value = lerp(1, painting.clarity, framed);
     },
   };
 }

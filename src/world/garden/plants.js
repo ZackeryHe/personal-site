@@ -35,7 +35,7 @@ function addBamboo(scene, P, [t0, t1], rand, extraClumps = []) {
       });
     }
   };
-  for (let t = t0; t <= t1; t += 0.0045) {
+  for (let t = t0; t <= t1; t += 0.54 / P.pathLen) { // a clump every half metre or so
     for (const sign of [-1, 1]) {
       if (rand() < 0.35) continue;
       clump(P.at(t, sign * rand.range(2.6, 6.5)), 1 + Math.floor(rand() * 3)); // clear of the lanterns

@@ -217,3 +217,190 @@ html, body, #scene, a, button { cursor: none; }
   .station { left: 16px; right: 16px; bottom: 10vh; }
   #progress { right: 14px; }
 }
+
+/* ---------- The keepsake at the end (src/app/keepsake.js) ---------- */
+.keepsake {
+  position: fixed;
+  left: 50%;
+  bottom: 9vh;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: min(560px, 88vw);
+  text-align: center;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 5;
+  text-shadow: 0 0 2px var(--paper), 0 0 8px var(--paper), 0 0 16px var(--paper);
+}
+.keepsake-line { font-size: 1.2rem; line-height: 1.45; font-style: italic; }
+.keepsake-line .zh { font-style: normal; font-size: 1.5rem; margin-right: 0.45em; }
+.keepsake-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1rem 0.45rem 0.5rem;
+  font: inherit;
+  font-size: 1.1rem;
+  color: var(--ink);
+  background: rgba(239, 231, 214, 0.85);
+  border: 1px solid rgba(29, 33, 40, 0.35);
+  border-radius: 3px;
+  cursor: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.keepsake-copy:hover { border-color: var(--seal); background: rgba(239, 231, 214, 1); }
+.keepsake-seal {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  background: var(--seal);
+  color: var(--paper);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  text-shadow: none;
+}
+
+/* ---------- The greeting while the world is built (src/app/loader.js) ----------
+   Only transform and opacity animate, so it keeps moving while the page is busy. */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  background: #e5dbc6; /* the table the scroll lies on: a shade darker than its paper */
+  transition: opacity 0.9s ease;
+}
+#loader.is-gone { opacity: 0; pointer-events: none; }
+
+.loader-scroll {
+  position: relative;
+  display: flex;
+  align-items: center;
+  animation: loader-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+.loader-paper {
+  position: relative;
+  width: min(46vw, 540px);
+  height: min(13vw, 150px);
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: inset 0 3px 0 #cdb98f, inset 0 -3px 0 #cdb98f, 0 12px 26px -16px rgba(70, 48, 26, 0.55);
+  transition: transform 1.2s cubic-bezier(0.65, 0, 0.25, 1), box-shadow 0.4s;
+  will-change: transform;
+}
+.loader-roller {
+  position: relative;
+  width: 13px;
+  height: calc(min(13vw, 150px) + 22px);
+  border-radius: 4px;
+  background: linear-gradient(90deg, #2b1a10, #6b4529 45%, #3a2416);
+  transition: transform 1.2s cubic-bezier(0.65, 0, 0.25, 1), opacity 0.6s 0.5s;
+  z-index: 1;
+}
+.loader-roller::before,
+.loader-roller::after { /* jade end caps */
+  content: "";
+  position: absolute;
+  left: -2px;
+  width: 17px;
+  height: 9px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #5e7f6c, #9fbfa9 50%, #5e7f6c);
+}
+.loader-roller::before { top: -7px; }
+.loader-roller::after { bottom: -7px; }
+
+/* ink diffusing in the paper, like a drop in water */
+.loader-ink {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(22, 26, 33, 0.5), rgba(22, 26, 33, 0.18) 45%, rgba(22, 26, 33, 0) 70%);
+  filter: blur(3px);
+  opacity: 0;
+  animation: loader-ink 7.5s ease-out infinite;
+  will-change: transform, opacity;
+}
+.loader-ink--a { left: 14%; top: 22%; width: 34%; height: 90%; }
+.loader-ink--b { left: 52%; top: 8%; width: 26%; height: 70%; animation-delay: -2.4s; }
+.loader-ink--c { left: 70%; top: 40%; width: 22%; height: 60%; animation-delay: -4.6s; }
+.loader-ink--d { left: 34%; top: 50%; width: 18%; height: 50%; animation-delay: -6.1s; }
+
+/* drops of ink hanging in the air above the scroll, turning slowly */
+.loader-drops { display: flex; gap: 2.6rem; height: 2.4rem; align-items: flex-end; }
+.loader-drops i {
+  width: 9px;
+  height: 12px;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: #161a21;
+  animation: loader-drop 3.6s ease-in-out infinite;
+  will-change: transform;
+}
+.loader-drops i:nth-child(2) { animation-delay: -1.2s; transform: scale(1.3); }
+.loader-drops i:nth-child(3) { animation-delay: -2.3s; }
+
+.loader-status { font-style: italic; font-size: 1.15rem; opacity: 0.6; letter-spacing: 0.02em; }
+.loader-begin {
+  margin-top: -0.6rem;
+  padding: 0.5rem 1.2rem;
+  font: inherit;
+  font-size: 1.2rem;
+  letter-spacing: 0.03em;
+  color: var(--paper);
+  background: var(--seal);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.8s, transform 0.2s;
+}
+#loader.is-ready .loader-begin { opacity: 1; }
+.loader-begin:hover { transform: scale(1.04); }
+.loader-begin:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* begin: the rollers part, and the scroll unrolls toward you until its paper is the screen */
+#loader.is-opening .loader-scroll { animation: none; }
+#loader.is-opening .loader-paper {
+  transform: translateY(var(--shift-y, 0)) scale(var(--to-x, 3), var(--to-y, 6));
+  box-shadow: none;
+}
+#loader.is-opening .loader-roller--left { transform: translateX(-60vw); opacity: 0; }
+#loader.is-opening .loader-roller--right { transform: translateX(60vw); opacity: 0; }
+#loader.is-opening .loader-ink { animation: none; opacity: 0; transition: opacity 0.4s; }
+#loader.is-opening .loader-drops,
+#loader.is-opening .loader-status,
+#loader.is-opening .loader-begin { opacity: 0; transition: opacity 0.3s; }
+
+@keyframes loader-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes loader-ink {
+  0% { transform: scale(0.15); opacity: 0; }
+  12% { opacity: 0.85; }
+  100% { transform: scale(1.25) translateX(6%); opacity: 0; }
+}
+@keyframes loader-drop {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-10px) rotate(8deg); }
+}
+
+@media (max-width: 640px) {
+  .loader-paper { width: 78vw; height: 24vw; }
+  .loader-roller { height: calc(24vw + 22px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader-scroll, .loader-ink, .loader-drops i { animation: none; }
+  .loader-ink { opacity: 0.35; }
+  .loader-paper, .loader-roller { transition: none; }
+}

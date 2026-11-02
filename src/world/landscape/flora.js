@@ -19,9 +19,9 @@ const AUTUMN = [
   ["#d65a45", "#7a1f16"], // red
 ].map(([wash, ink]) => ({ wash: new THREE.Color(wash), ink: new THREE.Color(ink), amount: 1 }));
 
-export function build({ scene, P, rng }) {
+export function build({ scene, P, places, rng }) {
   const rand = rng(37);
-  const ok = (x, z, near = 4) => !(P.distToPath(x, z) < near || P.blocked(x, z) || P.overCliff(x, z, 2));
+  const ok = (x, z, near = 4) => !(P.distToPath(x, z) < near || P.blocked(x, z) || P.overCliff(x, z, 2) || P.slopeAt(x, z) > 0.5);
 
   // ---------- where the trees go ----------
   const trees = [];
@@ -37,7 +37,7 @@ export function build({ scene, P, rng }) {
   }
   // a few behind the garden walls around the tablets, not crowding them
   for (let i = 0; i < 10; i++) {
-    const t = STOPS.grove + rand.range(-0.07, 0.07);
+    const t = STOPS.grove + rand.range(-8.4, 8.4) / P.pathLen;
     const p = P.path.getPointAt(t).addScaledVector(P.sideAt(t), rand.range(9, 18) * (rand() < 0.5 ? -1 : 1));
     if (ok(p.x, p.z, 8)) trees.push({ x: p.x, z: p.z, h: rand.range(7, 11) });
   }
@@ -48,11 +48,14 @@ export function build({ scene, P, rng }) {
     trees.push({ x, z, h: r2.range(5, 9), autumn: Math.max(0, Math.min(AUTUMN.length - 1, k)) });
   }
 
-  addTrees(scene, trees, rand);
+  // the pines framing the painting at the end (places.painting.frame)
+  for (const { pos, h } of places.painting?.frame ?? []) trees.push({ x: pos.x, z: pos.z, h });
+
+  addTrees(scene, trees, rand, P.groundAt);
 }
 
 // ---------------------------------------------------------------- trees
-function addTrees(scene, spots, rand) {
+function addTrees(scene, spots, rand, groundAt) {
   // trunk: unit height, base at y=0, a gentle S-bend baked in, flaring at the foot
   const bend = (y) => 0.45 * Math.sin(y * 2.4) - 0.2 * y;
   const trunkGeo = new THREE.CylinderGeometry(0.13, 0.3, 1, 8, 12).translate(0, 0.5, 0);
@@ -131,7 +134,7 @@ function addTrees(scene, spots, rand) {
     pads = padsBy.get(group);
     const sc = rand.range(0.85, 1.3);
     const lean = rand.range(-0.12, 0.12);
-    treeM.compose(new THREE.Vector3(tr.x, 0, tr.z), q.setFromEuler(new THREE.Euler(lean, rand() * Math.PI * 2, 0, "YXZ")), s.set(1, 1, 1));
+    treeM.compose(new THREE.Vector3(tr.x, groundAt(tr.x, tr.z) - 0.1, tr.z), q.setFromEuler(new THREE.Euler(lean, rand() * Math.PI * 2, 0, "YXZ")), s.set(1, 1, 1));
     trunks.setMatrixAt(i, out.multiplyMatrices(treeM, local.makeScale(sc, tr.h, sc)));
     const trunkAt = (yn) => A.set((0.45 * Math.sin(yn * 2.4) - 0.2 * yn) * sc, yn * tr.h, 0);
 

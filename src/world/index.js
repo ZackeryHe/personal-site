@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { makePath } from "./path.js";
+import { makePath, RIM } from "./path.js";
+import { globals } from "../ink/material.js";
 import { planPlaces, MARKERS } from "./places.js";
 import { rng } from "./random.js";
 
@@ -41,6 +42,9 @@ const MODULES = [
 
 export function buildWorld(scene) {
   const P = makePath();
+  // the shaders know the lie of the land too (ink climbs things from the ground they stand on)
+  globals.uLand.value.set(P.brink.x, P.brink.z, P.endDir.x, P.endDir.z);
+  globals.uLandHeight.value = RIM;
   const places = planPlaces(P); // first, so scattered trees / grass keep out of reserved spots
   const ctx = { scene, P, places, rng };
 
@@ -66,6 +70,7 @@ export function buildWorld(scene) {
     markers,
     clickables: places.clickables ?? [], // things in the world you can click (the GitHub / LinkedIn / Email rocks)
     bench: places.bench?.pos,            // where you sit at the end
+    painting: places.painting,           // ...and the view you turn round to there
     benchClear: places.bench?.keepClear ?? 0, // ...and how far around it stays clear of flowers and petals
     built,
     update(time, camera) {

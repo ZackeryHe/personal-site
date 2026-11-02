@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { noise3 } from "./noise.js";
+import { RISE } from "../world/path.js";
 
 export const PAPER = new THREE.Color("#efe7d6");
 export const INK = new THREE.Color("#161a21");
@@ -38,6 +39,11 @@ export const globals = {
   uOchre: { value: OCHRE },
   uIndigo: { value: INDIGO },
   uSun: { value: new THREE.Vector3(0, 100, -700) }, // where the sun is (sky.js sets it)
+  // the land rising to the canyon's rim (path.js groundAt): the brink (x, z), the way to the
+  // canyon (x, z), and how high the rim rises. Ink climbs objects from the ground they stand on.
+  uAtmScale: { value: 1 },  // pushes the atmospheric fade further off (the painting at the end: app/walker.js)
+  uLand: { value: new THREE.Vector4(0, -1e5, 0, -1) },
+  uLandHeight: { value: 0 },
   uSunGlow: { value: SUN_GLOW },
 };
 
@@ -47,7 +53,21 @@ const CHANNELS = {
   ground: new THREE.Vector4(0, 0, 1, 0),
 };
 
+// the height of the ground under x, z: the same as path.js groundAt (RISE, roll)
+const landGLSL = /* glsl */ `
+  uniform vec4 uLand;        // the brink (x, z), the way out over the canyon (x, z)
+  uniform float uLandHeight; // how high the rim rises
+  float groundAt(vec2 p) {
+    vec2 rel = p - uLand.xy;
+    float d = dot(rel, uLand.zw);
+    float lat = dot(rel, vec2(-uLand.w, uLand.z));
+    float roll = 1.0 + 0.22 * (sin(lat * 0.045 + 0.7) - sin(0.7)) + 0.1 * (sin(lat * 0.11 + 2.1) - sin(2.1));
+    return uLandHeight * roll * smoothstep(${RISE[0].toFixed(1)}, ${RISE[1].toFixed(1)}, d);
+  }
+`;
+
 const vertexShader = /* glsl */ `
+  ${landGLSL}
   uniform float uTime;
   uniform float uSway;
   uniform float uWiggle;
@@ -69,8 +89,8 @@ const vertexShader = /* glsl */ `
       n = mat3(instanceMatrix) * n;
     #endif
     vec4 w = modelMatrix * local;
-    if (uSway > 0.0) { // wind: tops move, roots don't
-      float h = max(w.y, 0.0);
+    if (uSway > 0.0) { // wind: tops move, roots don't (measured from the ground they stand on)
+      float h = max(w.y - groundAt(w.xz), 0.0);
       float phase = uTime * 0.9 + w.x * 0.15 + w.z * 0.11;
       w.x += sin(phase) * uSway * h * h;
       w.z += cos(phase * 0.8) * uSway * 0.6 * h * h;
@@ -103,6 +123,8 @@ const fragmentShader = /* glsl */ `
   uniform float uTint;
   uniform vec3 uSun, uSunGlow;
   uniform float uGlow;
+  uniform float uAtmScale;
+  ${landGLSL}
   #ifdef DECAL
     uniform sampler2D uMap;
   #endif
@@ -117,7 +139,8 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     float dist = distance(vWorld, uCam);
-    float atm = smoothstep(uNear, uFar, dist);
+    float atmK = mix(1.0, uAtmScale, smoothstep(80.0, 200.0, uFar)); // (mountain-scale things only)
+    float atm = smoothstep(uNear * atmK, uFar * atmK, dist);
     vec3 q = vWorld * uNoiseScale;
     float blot = fbm3(q + 3.1);
     float fingers = fbm3lo(q * 4.7 + 7.7);
@@ -134,7 +157,7 @@ const fragmentShader = /* glsl */ `
     float reach = dot(field, uChannel);
   #endif
     // Ink climbs upward from the ground; noise makes the front blotchy with capillary fingers
-    float margin = reach - uBias - max(vWorld.y, 0.0) * uClimb
+    float margin = reach - uBias - max(vWorld.y - groundAt(vWorld.xz), 0.0) * uClimb
                  + (blot - 0.5) * uNoiseAmp + (fingers - 0.5) * uNoiseAmp * 0.45;
     float wet = smoothstep(-uEdge, uEdge, margin);
   #ifndef GROUND
@@ -205,6 +228,9 @@ const fragmentShader = /* glsl */ `
       float wetness = field.w;
       float stainTex = mix(0.6, 1.0, fbm3(vec3(vWorld.x, 0.0, vWorld.z) * uGrain));
       ink = stainTex * wet * mix(0.22, 1.0, wetness) + rim * uRim * mix(0.35, 1.0, wetness);
+      // where it's steep (the face up to the rim) it's rock: firm strokes, not a wash
+      float steep = 1.0 - smoothstep(0.4, 0.8, N.y);
+      ink += steep * wet * (0.3 + 0.7 * fbm3(vec3(vWorld.x * 0.6, vWorld.y * 0.15, vWorld.z * 0.6))) * 3.2;
       // ripple where a drop just landed
       float age = uTime - uLastDrop.z;
       if (age > 0.0 && age < 3.0) {

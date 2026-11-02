@@ -79,7 +79,8 @@ export function build({ scene, P, places, rng }) {
             // start somewhere up in the air ahead of and around you
             const ahead = rand.range(-3, 16);
             const side = rand.range(-9, 9);
-            p.pos.set(camera.position.x + fwd.x * ahead - fwd.z * side, rand.range(3, 7), camera.position.z + fwd.z * ahead + fwd.x * side);
+            p.pos.set(camera.position.x + fwd.x * ahead - fwd.z * side, 0, camera.position.z + fwd.z * ahead + fwd.x * side);
+            p.pos.y = P.groundAt(p.pos.x, p.pos.z) + rand.range(3, 7);
             if (allowed(p.pos.x, p.pos.z) < 1) {
               f.mesh.setMatrixAt(i, m4.makeScale(0, 0, 0));
               return;
@@ -87,13 +88,14 @@ export function build({ scene, P, places, rng }) {
             p.alive = true;
             p.rest = 0;
           }
-          if (p.pos.y > 0.02) {
+          const ground = P.groundAt(p.pos.x, p.pos.z) + 0.02;
+          if (p.pos.y > ground) {
             p.pos.y -= p.fall * dt;
             p.pos.x += Math.sin(time * p.sway * 2 + p.phase) * p.sway * dt + dt * 0.25; // a light breeze
             p.pos.z += Math.cos(time * p.sway * 1.6 + p.phase) * p.sway * dt * 0.6;
             e.set(time * p.spin + p.phase, time * p.spin * 0.6, Math.sin(time * 2 + p.phase) * 0.8);
           } else {
-            p.pos.y = 0.02;
+            p.pos.y = ground;
             e.set(-Math.PI / 2, p.phase, 0); // resting on the ground
             p.rest += dt;
             if (p.rest > 4) p.alive = false;

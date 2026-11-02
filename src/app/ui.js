@@ -26,7 +26,7 @@ function svgDefs() {
  * Returns set(k): 0 = gone, 1 = fully written. Below 1 the element is displaced,
  * blurred and thresholded by an SVG filter.
  */
-function inkBleed(el) {
+export function inkBleed(el) {
   const id = `bleed-${filterCount++}`;
   const filter = document.createElementNS(SVG_NS, "filter");
   filter.setAttribute("id", id);

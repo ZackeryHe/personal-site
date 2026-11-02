@@ -30,5 +30,7 @@ export const SITE = {
       id: "resume", label: "Resume", zh: "履历", href: "#",
       body: 'Placeholder. <a href="#">Download the PDF</a>.',
     },
+    // the end: sit on the bench, turn round to the walk below you, and keep the painting
+    { id: "painting", label: "The painting" },
   ],
 };

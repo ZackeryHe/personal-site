@@ -92,6 +92,7 @@ export function build({ scene, P, rng }) {
     if (t > 0.95) return null; // nothing settles at the very end
     out.copy(P.at(t, side));
     if (P.blocked(out.x, out.z, { by: "grass" }) || P.overCliff(out.x, out.z, 3) || P.distToPath(out.x, out.z) < 1) return null;
+    if (P.groundAt(out.x, out.z) > 0.05) return null; // only on the level: not up the rim's slope
     return out;
   }
 

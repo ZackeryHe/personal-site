@@ -12,6 +12,23 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
+  <!-- The greeting while the world is built (src/app/loader.js): a handscroll on the table -->
+  <div id="loader">
+    <div class="loader-drops" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="loader-scroll" aria-hidden="true">
+      <span class="loader-roller loader-roller--left"></span>
+      <div class="loader-paper">
+        <span class="loader-ink loader-ink--a"></span>
+        <span class="loader-ink loader-ink--b"></span>
+        <span class="loader-ink loader-ink--c"></span>
+        <span class="loader-ink loader-ink--d"></span>
+      </div>
+      <span class="loader-roller loader-roller--right"></span>
+    </div>
+    <p class="loader-status" role="status">grinding the ink…</p>
+    <button class="loader-begin" type="button" hidden>unroll the scroll</button>
+  </div>
+
   <canvas id="scene"></canvas>
 
   <!-- Markers for your points, floating in the world (src/app/ui.js) -->

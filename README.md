@@ -16,25 +16,32 @@ Dev URL options (combine with `&`):
 | URL | What it does |
 |---|---|
 | `?t=0.5` | start halfway along the path (0 = start, 1 = end) |
-| `?instant` | skip the opening drop; ink has already spread around you |
+| `?instant` | skip the greeting and the opening drop; ink has already spread around you |
+| `?inked` | ...and along the whole walk, as if you'd walked it (to see the painting at the end: `?t=1&inked`) |
+| `?go` | skip the greeting (the scroll you unroll), but keep the opening drop |
 | `?look=-0.6` | start with your head turned (negative = left), until you move the mouse |
 | `?warp=4` | run time 4× faster (testing blooms and other slow things) |
 | `?debug` | exposes `window.site` (walker, colour, drops, world, scene…) in the console; `site.world.built` holds each world module's state |
 
-e.g. the koi pond: `?t=0.135&instant&look=-0.75`
+e.g. the koi pond: `?t=0.09&instant&look=-0.75`; the painting at the end: `?t=1&inked`
 
 Controls: scroll / swipe / ↑↓ to walk, move the mouse to look, click the ground to flick ink,
 click the dots on the right to jump to a section. Stand still and you can turn your head much
 further; crane to the side and colour blooms where you look (see "The colour stage" below).
-Walk all the way to the end and you sit down on the stone bench and turn round to look back the
-way you came (`walk.sitTurn`); move the mouse to the edge of the screen to face the canyon again.
+The page opens on a handscroll while the world is built; unroll it and the first drop falls.
+Walk all the way to the end, up the stone steps onto the rim, and you sit down on the bench and
+turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
+colour where you stopped to look. It's the same view whichever way you were looking
+(`places.painting` in `world/places.js`); move the mouse to look around (right round to the
+canyon at the edges of the screen). Keep looking at it and it offers to copy itself to your
+clipboard, framed, with a seal and a line of colophon (`app/keepsake.js`).
 
 ## Where to edit what
 
 | To change… | Edit |
 |---|---|
 | **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume): labels, links, panel text (HTML ok) | `src/content.js` |
-| **Where things are**: the path's shape (`world/path.js`), each point's stop + marker, garden spots, spectacles, the sun | `src/world/places.js` |
+| **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `RIM`, `RISE`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
 | **How it feels**: ink speed/reach, sketch distance, scroll speed, intro timing, the colour stage | `src/config.js` |
 | Colours, fonts, overlay layout | `src/style.css`, top of `src/ink/material.js` |
 
@@ -46,8 +53,11 @@ src/
   content.js         your words
   config.js          the main settings
   app/
+    loader.js        the greeting while the world is built: a handscroll that unrolls into the page
     walker.js        you: input, moving along the path, camera, standing still + craning,
-                     a gentle nudge toward your points as you approach them
+                     a gentle nudge toward your points as you approach them; sitting at the end
+                     and turning round to the painting
+    keepsake.js      the painting at the end: rendered afresh, sealed, copied to your clipboard
     drops.js         the ink: opening drop, footsteps, thrown-ahead ink, click-to-flick
     colour.js        the colour stage: blooms where you crane (and a little where you click),
                      flowers, butterflies
@@ -62,15 +72,18 @@ src/
   world/
     index.js         builds the world from a list of modules (add new ones here)
     places.js        where everything is: stops, markers for your points, scenery
-    path.js          the walk's curve + helpers (at(t, side), heightAt, the cliff, keepOnLand, reserve/blocked)
-    landscape/       terrain (ground ending at the cliff, stones, grass, the stream), mountains,
+    path.js          the walk's curve + helpers (at(t, side), heightAt, the land rising to the rim
+                     (groundAt), the cliff, keepOnLand, reserve/blocked)
+    landscape/       terrain (the ground, rising to the rim and ending at its cliff; stones, grass,
+                     the stream), mountains,
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)
     structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),
-                     the bridge, the pavilion (Resume)
+                     the pavilion at the bamboo's end (Resume), the bridge, the stone steps up
+                     the rim, the bench
     garden/          koi pond, plants (bamboo, plum, flowers), creatures (cranes, deer,
                      butterflies, the boat), critters (birds + rabbits that react to you),
-                     landmarks (your name rock, the GitHub / LinkedIn / Email rocks, scholar's rocks)
+                     landmarks (the GitHub / LinkedIn / Email rocks, scholar's rocks)
     spectacles/      the waterfall + its pool, the canyon at the end (vista: towers in layers
                      dotted with scrub, the sea of cloud, the stone arch, a waterfall, cranes
                      crossing the sun),

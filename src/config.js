@@ -27,7 +27,7 @@ export const CONFIG = {
     nudgeEase: 1.2,   // how gently your head turns toward a point as you approach (lower = gentler)
     sitHeight: 1.15,  // eye height on the bench at the end
     sitEase: 0.9,     // how slowly you sit down (lower = slower)
-    sitTurn: Math.PI, // how far you turn round as you sit (π: to face back the way you came; 0: the canyon)
+    // (sitting, you turn round to the painting's view: see places.painting in src/world/places.js)
   },
 
   // 设色, the colour stage: stand still and crane to the side, and colour blooms where you look
@@ -64,7 +64,7 @@ export const CONFIG = {
     maxThrow: 30,          // ...but never more than this many metres
     flick: 0.6,            // strength of a clicked drop (1 = same as a footstep)
     // the top-down area the ink map covers (must contain everything that inks in)
-    fieldRect: [-210, -335, 420, 420], // x0, z0, width, depth
+    fieldRect: [-200, -360, 480, 480], // x0, z0, width, depth
     fieldResolution: 320,
   },
 

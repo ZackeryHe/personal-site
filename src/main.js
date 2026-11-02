@@ -11,16 +11,22 @@ import { createColour } from "./app/colour.js";
 import { createUI, createMarkers, createHint } from "./app/ui.js";
 import { createBrush } from "./app/brush.js";
 import { createPicker } from "./app/picker.js";
+import { createKeepsake } from "./app/keepsake.js";
+import { createLoader } from "./app/loader.js";
 
 // Dev URL options:
 //   ?t=0.5      start halfway along the walk (0 = start, 1 = end)
 //   ?instant    skip the opening; ink has already spread around you
+//   ?inked      ...and along the whole walk, as if you'd walked it (to see the painting at the end)
 //   ?look=-0.6  start looking left (+ = right), until you move the mouse
 //   ?warp=4     run time 4× faster (testing slow things like blooms)
+//   ?go         skip the scroll you're greeted with (so do ?instant and ?inked)
 const params = new URLSearchParams(location.search);
 const warp = parseFloat(params.get("warp")) || 1;
+const skipGreeting = params.has("go") || params.has("instant") || params.has("inked");
 
 document.title = SITE.name;
+const loader = createLoader(); // the scroll that greets you while the world is built (index.html)
 
 // ---------- Rendering ----------
 const canvas = document.getElementById("scene");
@@ -35,65 +41,81 @@ globals.tField.value = field.texture;
 globals.uFieldRect.value.copy(field.rect);
 const post = new WatercolorPass(renderer); // repaints each frame as watercolour
 
-// ---------- The world, you, the ink, the words ----------
-const world = buildWorld(scene);
-const walker = createWalker({
-  camera, world,
-  startT: parseFloat(params.get("t")) || 0,
-  startLook: parseFloat(params.get("look")) || 0,
-});
-const drops = createDrops({
-  field, scene, camera, walker, world, instant: params.has("instant"),
-  onFlick: (x, z) => colour.splash(x, z, globals.uTime.value), // a little colour bleeds out of a splat
-});
-const ui = createUI({
-  onJump: (t) => {
-    walker.jumpTo(t);
-    drops.dropAt(t);
-  },
-});
-const markers = createMarkers(world.markers); // your points, floating in the world
-const picker = createPicker({ camera, clickables: world.clickables }); // the GitHub / LinkedIn / Email rocks
-const brush = createBrush({ canSplat: () => !picker.hovered }); // the pointer
-const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
-const hint = createHint(SITE.stillHint);
-let walked = 0; // metres, so the hint waits until you've had a wander
-if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene }; // poke around in the console
+boot();
 
-// ---------- Loop ----------
-function resize() {
-  renderer.setSize(innerWidth, innerHeight, false);
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  post.setSize(innerWidth, innerHeight);
-}
-addEventListener("resize", resize);
-resize();
+async function boot() {
+  await loader.painted(); // let the greeting paint first: building the world holds up the page
 
-const timer = new THREE.Timer();
-timer.connect(document); // pauses cleanly when the tab is hidden
-const clamp01 = (x) => THREE.MathUtils.clamp(x, 0, 1);
+  // ---------- The world, you, the ink, the words ----------
+  const world = buildWorld(scene);
+  const walker = createWalker({
+    camera, world,
+    startT: parseFloat(params.get("t")) || 0,
+    startLook: parseFloat(params.get("look")) || 0,
+  });
+  const drops = createDrops({
+    field, scene, camera, walker, world, instant: params.has("instant"), inked: params.has("inked"),
+    onFlick: (x, z) => colour.splash(x, z, globals.uTime.value), // a little colour bleeds out of a splat
+  });
+  const ui = createUI({
+    onJump: (t) => {
+      walker.jumpTo(t);
+      drops.dropAt(t);
+    },
+  });
+  const markers = createMarkers(world.markers); // your points, floating in the world
+  const picker = createPicker({ camera, clickables: world.clickables }); // the GitHub / LinkedIn / Email rocks
+  const brush = createBrush({ canSplat: () => !picker.hovered }); // the pointer
+  const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
+  const hint = createHint(SITE.stillHint);
+  const keepsake = createKeepsake({ renderer, scene, walker, world }); // the painting at the end, to keep
+  if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake }; // poke around in the console
+  let walked = 0; // metres, so the hint waits until you've had a wander
 
-function frame(timestamp) {
-  timer.update(timestamp);
-  const dt = THREE.MathUtils.clamp(timer.getDelta(), 0, 0.05) * warp; // never backwards (first frame can be)
-  const now = (globals.uTime.value += dt);
+  // ---------- Loop ----------
+  function resize() {
+    renderer.setSize(innerWidth, innerHeight, false);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    post.setSize(innerWidth, innerHeight);
+  }
+  addEventListener("resize", resize);
+  resize();
 
-  walker.update(dt);
+  const timer = new THREE.Timer();
+  timer.connect(document); // pauses cleanly when the tab is hidden
+  const clamp01 = (x) => THREE.MathUtils.clamp(x, 0, 1);
+
+  function frame(timestamp) {
+    timer.update(timestamp);
+    const dt = THREE.MathUtils.clamp(timer.getDelta(), 0, 0.05) * warp; // never backwards (first frame can be)
+    const now = (globals.uTime.value += dt);
+
+    walker.update(dt);
+    globals.uCam.value.copy(camera.position);
+    drops.update(now);
+    field.update(now);
+    const ready = drops.introStart !== null && now - drops.introStart > 2; // the opening has played
+    colour.update(now, dt, ready);
+    world.update(now, camera);
+
+    walked += Math.abs(walker.speed) * dt;
+    ui.update(walker.progress, clamp01((now - 0.3) / 1.4));
+    markers.update(camera, drops.introStart === null ? 0 : clamp01((now - drops.introStart) / 2));
+    picker.update();
+    brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
+    hint.update(ready && walked > 6 && walker.still > 0.6 && colour.blooms === 0 && walker.seated < 0.1, dt);
+    keepsake.update(dt / warp);
+    post.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  // warm up behind the scroll: compile every shader, and paint a first (blank) frame
+  walker.update(0);
   globals.uCam.value.copy(camera.position);
-  drops.update(now);
-  field.update(now);
-  const ready = drops.introStart !== null && now - drops.introStart > 2; // the opening has played
-  colour.update(now, dt, ready);
-  world.update(now, camera);
-
-  walked += Math.abs(walker.speed) * dt;
-  ui.update(walker.progress, clamp01((now - 0.3) / 1.4));
-  markers.update(camera, drops.introStart === null ? 0 : clamp01((now - drops.introStart) / 2));
-  picker.update();
-  brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
-  hint.update(ready && walked > 6 && walker.still > 0.6 && colour.blooms === 0, dt);
+  await renderer.compileAsync?.(scene, camera);
   post.render(scene, camera);
+  if (skipGreeting) loader.dismiss();
+  else await loader.ready(); // ...until you begin: the scroll unrolls, its paper fills the screen
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);

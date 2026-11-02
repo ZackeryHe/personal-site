@@ -94,6 +94,38 @@ export function build({ scene, P, places }) {
     scene.add(bench);
   }
 
+  // ---------- Stone steps up the rim's steep face to the lookout ----------
+  // a slab every 26 cm of rise, each reaching back to the one below it (its riser stands proud
+  // of the slope; the slope runs on inside it)
+  {
+    const steps = [];
+    const t0 = P.nearestT(...(() => { const q = P.at(0.8); return [q.x, q.z]; })());
+    const N = 600;
+    let last = null;
+    for (let i = 0; i <= N; i++) {
+      const t = t0 + ((1 - t0) * i) / N;
+      const p = P.path.getPointAt(t);
+      const h = P.groundAt(p.x, p.z);
+      if (!last) {
+        if (P.slopeAt(p.x, p.z) < 0.15) continue; // the steps begin where the ground steepens
+        last = { t, p, h };
+        continue;
+      }
+      if (h - last.h < 0.26 && i < N) continue;
+      if (h - last.h > 0.02) {
+        const run = Math.min(Math.hypot(p.x - last.p.x, p.z - last.p.z), 1.1); // (no long slabs on the gentle top)
+        const tall = h - last.h + 0.7;
+        const box = new THREE.BoxGeometry(2.3, tall, run + 0.06, 1, 1, 1).toNonIndexed();
+        box.translate(0, h - tall / 2 + 0.04, -run / 2);
+        box.rotateY(P.yawAt(t));
+        box.translate(p.x, 0, p.z);
+        steps.push(box);
+      }
+      last = { t, p, h };
+    }
+    if (steps.length) scene.add(new THREE.Mesh(mergeGeometries(steps), stoneMat));
+  }
+
   // ---------- Stone lanterns along the bamboo path: one per project ----------
   // open-sided light box (four little posts) with a warm glow inside
   const lanternGeo = mergeGeometries([

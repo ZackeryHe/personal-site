@@ -46,8 +46,8 @@ function towerGeometry(layout, n, { x, z, r, top, base = -50, crownAt = 0.97, ta
     const bulge = 1 + 0.16 * n(ux * 1.3 + o, yw * 0.035, uz * 1.3) + 0.07 * n(ux * 3 - o, yw * 0.12, uz * 3 + o);
     let s = (1 + 0.12 * Math.sin(theta * 5 + phase) + 0.06 * Math.sin(theta * 11 + phase * 2)
       + 0.1 * (ledge - 0.7) * (0.5 + 0.5 * j2) + (j1 - 0.5) * 0.06) * bulge;
-    // the visible part (above the cloud, from about y = -30) carries the taper
-    const above = smoothstep(yw, -30, top);
+    // the visible part (above the cloud: from 20 m up its foot) carries the taper
+    const above = smoothstep(yw, base + 20, top);
     s *= (1 + (taper - 1) * above) * (1 - waist * Math.sin(Math.PI * above) ** 2 + flare * smoothstep(above, 0.72, 0.96));
     const crown = k > crownAt ? Math.sqrt(Math.max(0, 1 - ((k - crownAt) / (1 - crownAt)) ** 2)) : 1;
     const l = lean * H * k * k;
@@ -203,7 +203,10 @@ export function build({ scene, P, places }) {
   const right = new THREE.Vector3(-P.endDir.z, 0, P.endDir.x);
   const at = (side, ahead) => end.clone().addScaledVector(right, side).addScaledVector(P.endDir, ahead);
   const bench = places.bench?.pos ?? end;
-  const sea = -18; // the top of the sea of cloud
+  // the canyon is built up to the rim the walk climbs to: everything in it rises with it, as one
+  const lift = places.rim ?? 0;
+  const sea = lift - 18; // the top of the sea of cloud
+  const towerAt = (opts) => towerGeometry(rand, n, { base: lift - 50, ...opts });
 
   // geometry gathered by how it's inked: near things ink in as you arrive (the far ink reaches
   // ~240 m), far things are always there, pale on the horizon
@@ -236,11 +239,11 @@ export function build({ scene, P, places }) {
       const ahead = 34 + k * 42 + rand.range(-10, 10);
       const offset = side * (40 + ahead * 0.34 + rand.range(0, 18)); // the canyon widens away from you
       const r = 14 + k * 2.5 + rand.range(0, 10);
-      const top = rand.range(-4, 9) + k * 2.2; // below eye level near you, rising far off
+      const top = lift + rand.range(-4, 9) + k * 2.2; // below eye level near you, rising far off
       const p = at(offset, ahead);
       const set = ahead < NEAR ? near : far;
       const treeSize = Math.min(10, 4 + ahead * 0.014);
-      const main = towerGeometry(rand, n, { x: p.x, z: p.z, r, top, crownAt: 0.985 });
+      const main = towerAt({ x: p.x, z: p.z, r, top, crownAt: 0.985 });
       set.walls.push(main);
       const temple = side < 0 && k === 2;
       if (temple) templeSpot = { p: main.userData.crown, top, r };
@@ -252,7 +255,7 @@ export function build({ scene, P, places }) {
         const cr = r * rand.range(0.35, 0.6);
         const q = p.clone().add(new THREE.Vector3(Math.cos(a) * r * 0.62, 0, Math.sin(a) * r * 0.62));
         const ctop = top + rand.range(-10, 14);
-        const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: cr, top: ctop, crownAt: 0.975, flare: rand.range(0, 0.15) });
+        const col = towerAt({ x: q.x, z: q.z, r: cr, top: ctop, crownAt: 0.975, flare: rand.range(0, 0.15) });
         set.walls.push(col);
         clothe(set, col, { trees: someTrees(0.35), r: cr, size: treeSize * 0.9 });
       }
@@ -284,8 +287,8 @@ export function build({ scene, P, places }) {
   TOWERS.forEach(([side, ahead, r, top, taper], i) => {
     const p = at(side, ahead);
     const set = ahead < NEAR ? near : far;
-    const g = towerGeometry(rand, n, {
-      x: p.x, z: p.z, r, top, taper, waist: rand.range(0, 0.12), flare: rand.range(0, 0.15), lean: rand.range(0.003, 0.01),
+    const g = towerAt({
+      x: p.x, z: p.z, r, top: top + lift, taper, waist: rand.range(0, 0.12), flare: rand.range(0, 0.15), lean: rand.range(0.003, 0.01),
     });
     set.towers.push(g);
     towerAxis.push(p);
@@ -300,23 +303,23 @@ export function build({ scene, P, places }) {
       const cr = r * rand.range(0.4, 0.65);
       // (seated well into the tower and standing upright, so no sliver of sky opens between them)
       const q = p.clone().add(new THREE.Vector3(Math.cos(a) * r * 0.6, 0, Math.sin(a) * r * 0.6));
-      const ctop = top - (top + 24) * rand.range(0.15, 0.55);
-      const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: cr, top: ctop, taper: rand.range(0.7, 0.9) });
+      const ctop = lift + top - (top + 24) * rand.range(0.15, 0.55);
+      const col = towerAt({ x: q.x, z: q.z, r: cr, top: ctop, taper: rand.range(0.7, 0.9) });
       set.towers.push(col);
       clothe(set, col, { trees: someTrees(0.3), r: cr * 0.7, size: treeSize * 0.85 });
     }
   });
 
   // ---------- a cliff left of the middle, with a waterfall leaping from it into the cloud ----------
-  const FALL = { side: -30, ahead: 150, r: 13, top: 16 };
+  const FALL = { side: -30, ahead: 150, r: 13, top: lift + 16 };
   const fallCliff = at(FALL.side, FALL.ahead);
   {
-    const g = towerGeometry(rand, n, { x: fallCliff.x, z: fallCliff.z, r: FALL.r, top: FALL.top, crownAt: 0.985 });
+    const g = towerAt({ x: fallCliff.x, z: fallCliff.z, r: FALL.r, top: FALL.top, crownAt: 0.985 });
     near.walls.push(g);
     clothe(near, g, { trees: 2, r: FALL.r, size: 6 });
     for (const [a, f, h] of [[2.2, 0.55, 8], [3.6, 0.45, -3]]) { // a shoulder and a lower step beside it
       const q = fallCliff.clone().addScaledVector(right, Math.cos(a) * FALL.r * 0.85).addScaledVector(P.endDir, Math.sin(a) * FALL.r * 0.85);
-      const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: FALL.r * f, top: FALL.top + h, crownAt: 0.98, taper: 0.85 });
+      const col = towerAt({ x: q.x, z: q.z, r: FALL.r * f, top: FALL.top + h, crownAt: 0.98, taper: 0.85 });
       near.walls.push(col);
       clothe(near, col, { trees: 1, r: FALL.r * f * 0.7, size: 5.5 });
     }
@@ -325,7 +328,7 @@ export function build({ scene, P, places }) {
   // ---------- 天生桥: a natural stone arch between two towers on the right ----------
   const archA = towerAxis[ARCH[0]];
   const archB = towerAxis[ARCH[1]];
-  const archY = 31;
+  const archY = lift + 31;
   const arch = archGeometry(rand, n, archA, archB, archY, 8);
   near.spots.push(...surfaceSpots(arch, veg, { density: 0.2, faces: 0.05 })); // bushes along its back
   {
@@ -342,7 +345,7 @@ export function build({ scene, P, places }) {
     climb: 0, grain: 0.3, near: 30, far: 520, minFar: 0.16, mistBase: sea - 2, mist, mistFloor: 0, wash: 1, glow: 0.95, cloud,
   });
   const wallCloud = new THREE.Vector4(sea - 2, 4, 0.5, 0.6); // mist pooled around the walls' feet
-  const towerCloud = new THREE.Vector4(12, 7, 0.7, 0.5);     // a belt of cloud through the towers' middles
+  const towerCloud = new THREE.Vector4(lift + 12, 7, 0.7, 0.5); // a belt of cloud through the towers' middles
   const add = (geos, mat) => {
     if (!geos.length) return null;
     const m = new THREE.Mesh(mergeGeometries(geos), mat);
@@ -351,13 +354,13 @@ export function build({ scene, P, places }) {
     return m;
   };
   // near stone is inked darker than far, so the layers step back one behind another
-  add(near.walls, mountainMaterial({ ...stone(wallCloud, -5), density: 1.1 }));
-  add(far.walls, mountainMaterial({ ...stone(wallCloud, -5), reveal: "global" }));
-  add(near.towers, mountainMaterial({ ...stone(towerCloud, -4), density: 1.15 }));
-  add(far.towers, mountainMaterial({ ...stone(new THREE.Vector4(24, 10, 0.7, 0.4), -4), reveal: "global" }));
-  add([arch], mountainMaterial({ ...stone(new THREE.Vector4(0, 1, 0, 0), -4), density: 1.15 }));
+  add(near.walls, mountainMaterial({ ...stone(wallCloud, lift - 5), density: 1.1 }));
+  add(far.walls, mountainMaterial({ ...stone(wallCloud, lift - 5), reveal: "global" }));
+  add(near.towers, mountainMaterial({ ...stone(towerCloud, lift - 4), density: 1.15 }));
+  add(far.towers, mountainMaterial({ ...stone(new THREE.Vector4(lift + 24, 10, 0.7, 0.4), lift - 4), reveal: "global" }));
+  add([arch], mountainMaterial({ ...stone(new THREE.Vector4(0, 1, 0, 0), lift - 4), density: 1.15 }));
   // trees and bushes, fading into the cloud like the rock they grow on
-  const growth = { near: 30, far: 520, minFar: 0.2, mistBase: sea - 2, mist: -5, mistFloor: 0, glow: 0.6 };
+  const growth = { near: 30, far: 520, minFar: 0.2, mistBase: sea - 2, mist: lift - 5, mistFloor: 0, glow: 0.6 };
   const trunkInk = (opts) => inkMaterial({
     channel: "far", climb: 0, noiseScale: 0.1, noiseAmp: 0.25, grain: 0.8, sil: 0.5, density: 1.1, shade: 0.5,
     tint: "wood", ...growth, ...opts,
@@ -370,7 +373,7 @@ export function build({ scene, P, places }) {
 
   // the temple stands on a mesa top on the left, a little way out
   if (templeSpot) {
-    places.temple.pos.copy(templeSpot.p).setY(templeSpot.top - 0.3);
+    places.temple.pos.copy(templeSpot.p).setY(templeSpot.top - 0.3); // (its crown, built up with the rest)
     places.temple.faces = end.clone();
   }
 
@@ -381,7 +384,7 @@ export function build({ scene, P, places }) {
     fallGeometry(lip, toBench, FALL.top - 1, sea - 2, 1.6, 6.5),
     inkMaterial({
       variant: "waterfall", tint: "water", channel: "far", climb: 0, noiseScale: 0.05, noiseAmp: 0.2,
-      near: 40, far: 520, minFar: 0.35, density: 0.85, mistBase: sea - 2, mist: -6, mistFloor: 0, grain: 0.3, sil: 0, rim: 0.3,
+      near: 40, far: 520, minFar: 0.35, density: 0.85, mistBase: sea - 2, mist: lift - 6, mistFloor: 0, grain: 0.3, sil: 0, rim: 0.3,
       side: THREE.DoubleSide,
     })
   ));
@@ -413,7 +416,7 @@ export function build({ scene, P, places }) {
     spots: (i, r) => {
       const ahead = r.range(200, 450);
       const p = at((r() < 0.5 ? -1 : 1) * r.range(45, 40 + ahead * 0.35), ahead); // off to the sides, clear of the sun
-      return [p.x, r.range(0, 12), p.z];
+      return [p.x, lift + r.range(0, 12), p.z];
     },
   });
   createMist(scene, rand, {
@@ -446,7 +449,7 @@ export function build({ scene, P, places }) {
     black: craneInk({ density: 1.05, sil: 0.2, shade: 0.5 }),
     red: craneInk({ density: 1, sil: 0, color: SEAL_RED }),
   };
-  const centre = at(0, 205).setY(33);
+  const centre = at(0, 205).setY(lift + 33);
   const cranes = [0, 1, 2].map((i) => {
     const c = flyingCrane(mats);
     c.group.scale.setScalar(3); // drawn larger than life, as painters do, so they read against the sun

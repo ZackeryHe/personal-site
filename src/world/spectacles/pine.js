@@ -5,12 +5,12 @@ import { facing } from "./common.js";
 
 // 迎客松 — the "welcoming pine": an old pine at the very edge of the cliff, leaning out
 // over the canyon, one long branch held out over the drop. It frames the view at the end.
-export function build({ scene, places, rng }) {
+export function build({ scene, P, places, rng }) {
   const rand = rng(87);
   const C = places.pine;
   const { dir, side } = facing(C); // dir: out over the canyon
   const up = new THREE.Vector3(0, 1, 0);
-  const root = C.pos.clone().setY(-0.2);
+  const root = C.pos.clone().setY(P.groundAt(C.pos.x, C.pos.z) - 0.2); // rooted on the rim
   const p = (u, d, s) => root.clone().addScaledVector(up, u).addScaledVector(dir, d).addScaledVector(side, s);
   /** A limb along the points, thinning from r0 at its root to r1 at its tip. */
   const branch = (points, r0, r1) => {

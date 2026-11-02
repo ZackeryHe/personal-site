@@ -133,12 +133,26 @@ export class WatercolorPass {
     this.material.uniforms.uRes.value.set(Math.floor(w * pr), Math.floor(h * pr));
   }
 
-  render(scene, camera) {
+  /** Size it in device pixels directly (e.g. for an offscreen keepsake), ignoring the pixel ratio. */
+  setPixelSize(w, h) {
+    this.target.setSize(w, h);
+    this.material.uniforms.uRes.value.set(w, h);
+  }
+
+  /** Paint the scene: to the screen, or into `output` (a render target) if given. */
+  render(scene, camera, output = null) {
     this.material.uniforms.uNear.value = camera.near;
     this.material.uniforms.uFar.value = camera.far;
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(scene, camera);
-    this.renderer.setRenderTarget(null);
+    this.renderer.setRenderTarget(output);
     this.renderer.render(this.scene, this.camera);
+    this.renderer.setRenderTarget(null);
+  }
+
+  dispose() {
+    this.target.depthTexture?.dispose();
+    this.target.dispose();
+    this.material.dispose();
   }
 }
