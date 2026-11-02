@@ -98,7 +98,7 @@ export function createGreeting(renderer) {
         uScale: { value: SPLAT_SCALE },
         uBounds: { value: new THREE.Vector4() }, // the scroll's paper (world x0, z0, x1, z1)
         uPaperTone: { value: new THREE.Color("#efe7d6").multiplyScalar(0.93) }, // (the world's paper, its vignette and all)
-        uSeam: { value: 1 }, // 1 → 0 as you settle: the seam where the world meets its estimate is softened, then gone
+        uSeam: { value: 1 }, // 1 → 0 once you've locked on: the vignette where the world melts into its estimate fades away
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -137,7 +137,10 @@ export function createGreeting(renderer) {
           vec3 world = texture2D(tWorld, q).rgb;
           float beyond = length(max(abs(q - 0.5) - 0.5, 0.0)); // how far outside the screen's frame
           float fromEdge = min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y)); // how far inside it
-          float seam = beyond > 0.0 ? 1.0 : (1.0 - smoothstep(0.0, 0.16, fromEdge)) * uSeam;
+          // a light vignette: near the screen's edges the world melts into the wash (faded away once
+          // you've locked on: uSeam), and beyond them it is all wash
+          float edgeK = (1.0 - smoothstep(0.0, 0.24, fromEdge)) * 0.6;
+          float seam = beyond > 0.0 ? mix(0.6, 1.0, smoothstep(0.0, 0.08, beyond)) : edgeK * uSeam;
           vec3 c = world;
           if (seam > 0.0) {
             vec2 warp = (vec2(n(p * 1.3 + 3.1), n(p * 1.3 + 8.3)) - 0.5) * 0.36; // (wavering, like water)
@@ -170,6 +173,7 @@ export function createGreeting(renderer) {
   scene.add(painting);
   const PAINT_H = 2; // how deep (m) the painting is on the scroll, once you look down on it
   const SPREAD_TIME = 1.5; // seconds for it to spread from the drop out to the scroll's... your screen's edges
+  const LOCK_FADE = 0.7; // ...and for the vignette round its edges to fade once you've locked on
 
   // ---------- state ----------
   let progress = 0; // how much of the world is built (0–1): the drop swells with it
@@ -246,7 +250,11 @@ export function createGreeting(renderer) {
         // (past the screen's corners, ragged edge and all, well before you settle; and on out)
         const cover = Math.hypot(camera.aspect, 1) / 2 + 0.3;
         painting.material.uniforms.uSpread.value = (1 - Math.pow(1 - s, 2.2)) * cover * 1.5;
-        if (age > SPREAD_TIME && falling.resolve) {
+        // locked on (the painting fills your view): hold there while the vignette fades away,
+        // and then hand over
+        const lock = age - SPREAD_TIME;
+        painting.material.uniforms.uSeam.value = 1 - THREE.MathUtils.smoothstep(lock, 0, LOCK_FADE);
+        if (lock > LOCK_FADE && falling.resolve) {
           falling.resolve();
           falling.resolve = null;
         }
@@ -281,7 +289,6 @@ export function createGreeting(renderer) {
 
     bubbles.update(dt, camera);
     bubbles.fade(1 - settle); // (gone by the time you look down on the painting)
-    painting.material.uniforms.uSeam.value = 1 - Math.pow(settle, 4); // (soft till the very end: the hand-off frame is exactly the world)
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
   }
