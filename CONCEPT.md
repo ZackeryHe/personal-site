@@ -52,19 +52,24 @@ stopped to look.
    walls (粉墙) with dark tile coping, lattice windows (漏窗) and a moon gate (月洞门), bamboo
    peeking over. The waterfall is already visible at the end of it.
 4. **Projects**: stone lanterns, warmly lit, lining the path through the bamboo.
-5. **The waterfall**: you come out of the bamboo facing it. Its mountain is a broad massif of
-   rounded summits after the old painters (Dong Yuan, Huang Gongwang), long hemp-fibre strokes
-   (披麻皴) running down its slopes, small boulders on its crowns (矾头), and the falls pour from
-   a cleft between two shoulders into a pool, mist billowing up where they land; cranes wade in
+5. **The waterfall**: you come out of the bamboo facing it. Its mountain is a massif after the
+   old painters (Dong Yuan, Huang Gongwang, Fan Kuan): slightly peaked summits, smaller peaks
+   breaking its ridgelines, rocky ribs, flanks flaring out at the foot, long hemp-fibre strokes
+   (披麻皴) running down its slopes, and the falls pour from a cleft between two shoulders into a
+   pool, mist billowing up where they land; cranes wade in
    the shallows, a fisherman drifts on the pool, deer graze by its stream, which runs under a
    stone arch bridge.
 6. **Resume**: across the bridge, the pavilion on the pool's shore, the pagoda on its knoll
-   behind; its hanging scrolls are the pages of your resume, the falls beside it. Then across
-   the meadows to the foot of a rock escarpment, and up a sky ladder (天梯) of stone steps cut
-   straight up its face, steeper and steeper, to the rim.
-7. **The end: nothing built but a stone bench, on a narrow crest high on the rim, right at the
-   edge.** The crest is narrow and the face below it steep, so that sitting there you look over
-   its brow straight down into the valley and see none of the climb. The land stops
+   behind; its hanging scrolls are the pages of your resume, the falls beside it.
+7. **Source code (源码)**: across the meadows, a well under its own little roof, a windlass and
+   bucket over it: 源, the source (a spring's, and this site's: Source code ↗). Then to the foot
+   of a rock escarpment, and up a sky ladder (天梯) of stone steps cut straight up its face,
+   steeper and steeper, to the rim.
+8. **The end: nothing built but a stone bench, on a narrow crest high on the rim, right at the
+   edge.** The lookout is a promontory: to either side the ridge falls away into the sea of
+   cloud, its ink thinning into the paper as it goes (留白). The crest is narrow and the face
+   below it steep, so that sitting there you look over its brow straight down into the valley
+   and see none of the climb. The land stops
    at a cliff with a lone pine on the brink; no flowers grow and no petals fall around the
    bench, so it's just you and the view. Below, a canyon that is a forest of stone: sheer towers rising out of
    a sea of cloud (云海) that you look down onto, their feet lost in billowing cloud, their
@@ -75,9 +80,9 @@ stopped to look.
    them, its warm glow washed across the sky and the haze, cranes gliding across its face. The
    sun is the walk's one big accent of cinnabar, and you catch it from far back: beside the
    waterfall, behind the pavilion as you cross the bridge.
-8. **The painting (留念)**: sit on the bench and you turn round, and there's the whole walk laid
-   out below you as one painting, framed by two old pines: the pavilion and the bamboo, the
-   bridge, the waterfall and the pagoda, the ranges behind, and in it the ink you left as you
+9. **The painting (留念)**: sit on the bench and you turn round, and there's the whole walk laid
+   out below you as one painting: the bamboo, the bridge and the pavilion, the waterfall and the
+   pagoda, the ranges behind, and in it the ink you left as you
    walked and the colour where you stopped to look, so no two are the same. Any view from the
    bench is yours to keep: look around (right round to the canyon and the sun), rest your eyes on
    one and it's framed, and one click puts it on your clipboard, sealed, with a line of colophon.

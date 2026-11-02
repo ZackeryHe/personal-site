@@ -12,17 +12,19 @@ const smax = (a, b, k) => {
 };
 
 /**
- * A mountain after the old painters (Dong Yuan, Juran, Huang Gongwang): not a lone cone but a
- * massif of rounded summits run together, the main one and lesser ones, with saddles between;
- * soft ridges and gullies running down from them; on some, ledges stepping down the flanks
- * (折带); small rounded boulders crowning the summits (矾头); its foot spreading smoothly into
- * the ground. Built as a radial grid with exact normals, so it reads rounded and never jagged;
+ * A mountain after the old painters (Dong Yuan, Juran, Huang Gongwang, Fan Kuan): a massif of
+ * summits run together, its main one slightly peaked, lesser ones around it, and smaller peaks
+ * rising out of its ridges so its skyline goes up and down; its flanks concave, flaring out at the
+ * foot (not a mound: steep high up, spreading as they come down); rocky ribs and gullies running
+ * down from the summit; ledges stepping down some flanks (折带); on some, small boulders crowning
+ * the summits (矾头). Built as a radial grid with exact normals, so it's rocky but never jagged;
  * the texture strokes (皴) are painted on by the ink (mountainMaterial's `cun`).
  *   R: the footprint's radius   H: the main summit's height (above the ground)
- *   style: lobes (1–4 summits), round (1.1 full … 1.7 peaked), flat (2 domed … 3 flat-topped),
- *          terraces (0–0.5), ridges (0–1), crown (0/1: boulders on the summits),
+ *   style: lobes (1–4 summits), summit (1.4 peaked … 2.4 rounded), flare (1 straight … 2.6 concave,
+ *          flaring at the foot), peaks (smaller peaks along the ridges), rocky (0–1.3: ribs and
+ *          rock masses), terraces (0–0.5), crown (0/1: boulders on the summits),
  *          shoulders ([{ angle, dist, r, h }]: lesser summits placed by hand),
-          mainAt ({ angle, dist }: where the main summit stands, as a fraction of R),
+ *          mainAt ({ angle, dist }: where the main summit stands, as a fraction of R),
  *          gully ({ x, z: the way it faces, depth 0–1, width (radians) }: a ravine down one face)
  * Returns the geometry; its userData has heightAt(x, z) and radiusAt(dirX, dirZ, y) (world).
  * Its detail comes from its own random stream (one draw from `rand`), so changing the detail
@@ -33,33 +35,59 @@ export function massifGeometry(rand, x, z, R, H, style = {}) {
   const n = noise3(own);
   const o = [own() * 50, own() * 50, own() * 50];
   const lobeCount = style.lobes ?? 1 + Math.floor(own() * 3);
-  const round = style.round ?? own.range(1.15, 1.6);
-  const flat = style.flat ?? own.range(2, 2.7);
-  const terraces = style.terraces ?? (own() < 0.45 ? own.range(0.2, 0.42) : 0);
-  const ridges = style.ridges ?? own.range(0.55, 1);
-  const crown = style.crown ?? (own() < 0.7 ? 1 : 0);
+  const summit = style.summit ?? own.range(1.45, 1.9);
+  const flare = style.flare ?? own.range(1.7, 2.4);
+  const peakCount = style.peaks ?? 4 + Math.floor(own() * 4);
+  const rocky = style.rocky ?? own.range(0.8, 1.15);
+  const terraces = style.terraces ?? (own() < 0.4 ? own.range(0.18, 0.36) : 0);
+  const crown = style.crown ?? (own() < 0.4 ? 1 : 0);
   const gully = style.gully ?? null;
+  /** a summit's profile: t = 0 at its top → 1 at its foot */
+  const profile = (t, top, fl) => top * Math.pow(1 - Math.pow(t, summit), fl);
 
   // the summits: the main one near the middle (or where it's put), lesser ones around it
   const mx = style.mainAt ? Math.cos(style.mainAt.angle) * style.mainAt.dist : own.range(-0.06, 0.06);
   const mz = style.mainAt ? Math.sin(style.mainAt.angle) * style.mainAt.dist : own.range(-0.06, 0.06);
-  const lobes = [{ cx: mx * R, cz: mz * R, r: R * own.range(0.6, 0.7), h: H, p: round }];
+  const lobes = [{ cx: mx * R, cz: mz * R, r: R * own.range(0.62, 0.72), h: H, f: flare }];
   const extra = style.shoulders ?? Array.from({ length: lobeCount - 1 }, () => ({
     angle: own() * Math.PI * 2, dist: own.range(0.32, 0.5), r: own.range(0.32, 0.45), h: own.range(0.42, 0.72),
   }));
   for (const sh of extra) {
     const d = R * sh.dist;
-    lobes.push({ cx: Math.cos(sh.angle) * d, cz: Math.sin(sh.angle) * d, r: R * sh.r, h: H * sh.h, p: round * own.range(0.9, 1.15) });
+    lobes.push({ cx: Math.cos(sh.angle) * d, cz: Math.sin(sh.angle) * d, r: R * sh.r, h: H * sh.h, f: flare * own.range(0.85, 1.1) });
+  }
+  const summits = (px, pz) => {
+    let h = 0;
+    for (const L of lobes) {
+      const t = Math.hypot(px - L.cx, pz - L.cz) / L.r;
+      if (t < 1) h = smax(h, profile(t, L.h, L.f), H * 0.07);
+    }
+    return h;
+  };
+  // smaller peaks rising out of the ridges and shoulders: a little above the slope they stand on
+  const peaks = [];
+  for (let i = 0; i < peakCount; i++) {
+    const a = own() * Math.PI * 2;
+    const d = R * own.range(0.08, 0.5); // (some right by the summit: a broken, many-pointed crest)
+    const cx = lobes[0].cx + Math.cos(a) * d;
+    const cz = lobes[0].cz + Math.sin(a) * d;
+    const under = summits(cx, cz);
+    if (under < H * 0.14) continue;
+    if (gully) { // (none in the ravine)
+      const da = Math.atan2(Math.sin(Math.atan2(cz, cx) - Math.atan2(gully.z, gully.x)), Math.cos(Math.atan2(cz, cx) - Math.atan2(gully.z, gully.x)));
+      if (Math.abs(da) < gully.width * 1.6) continue;
+    }
+    peaks.push({ cx, cz, r: R * own.range(0.1, 0.2), h: Math.min(under + H * own.range(0.08, 0.2), H * 1.02) });
   }
   // boulders crowning the summits (矾头): a few small rounded knobs on each
   const knobs = [];
   if (crown) {
     for (const L of lobes) {
-      const count = 3 + Math.floor(own() * 3);
+      const count = 2 + Math.floor(own() * 3);
       for (let i = 0; i < count; i++) {
         const a = own() * Math.PI * 2;
-        const d = L.r * own.range(0.08, 0.3);
-        knobs.push({ cx: L.cx + Math.cos(a) * d, cz: L.cz + Math.sin(a) * d, r: R * own.range(0.06, 0.1), h: H * own.range(0.018, 0.034) });
+        const d = L.r * own.range(0.06, 0.24);
+        knobs.push({ cx: L.cx + Math.cos(a) * d, cz: L.cz + Math.sin(a) * d, r: R * own.range(0.05, 0.085), h: H * own.range(0.016, 0.03) });
       }
     }
   }
@@ -67,26 +95,29 @@ export function massifGeometry(rand, x, z, R, H, style = {}) {
 
   /** Height of the mountain at (px, pz), relative to its centre. */
   const heightAt = (px, pz) => {
-    let h = 0;
-    for (const L of lobes) {
-      const t = Math.hypot(px - L.cx, pz - L.cz) / L.r;
-      if (t < 1) h = smax(h, L.h * Math.pow(1 - Math.pow(t, flat), L.p), H * 0.12);
-    }
+    let h = summits(px, pz);
     if (h <= 0) return 0;
+    for (const K of peaks) {
+      const t = Math.hypot(px - K.cx, pz - K.cz) / K.r;
+      if (t < 1) h = smax(h, profile(t, K.h, 1.6), H * 0.035);
+    }
     for (const K of knobs) {
       const t = Math.hypot(px - K.cx, pz - K.cz) / K.r;
       if (t < 1) h += K.h * Math.pow(1 - t * t, 0.7); // (rounded boulders, not points)
     }
     const rr = Math.min(1, Math.hypot(px, pz) / R);
-    // ridges and gullies running down from the summit (soft-crested), and slow swellings
+    // rocky ribs and gullies running down from the summit (sharp-crested, like ribs of rock),
+    // and rock masses swelling out of the flanks
     const a = Math.atan2(pz - lobes[0].cz, px - lobes[0].cx);
     const ca = Math.cos(a), sa = Math.sin(a);
-    const v = n(ca * 2.3 + o[0], rr * 2.2, sa * 2.3 + o[1]);
-    const ridged = 1 - Math.sqrt(v * v + 0.015);
-    const fine = n(ca * 6 + o[2], rr * 5 + 3, sa * 6);
-    const down = Math.pow(Math.sin(Math.PI * Math.min(1, rr / 0.92)), 0.8); // none at the summit, nor the foot
-    h += H * 0.075 * ridges * ((ridged - 0.72) * 0.8 + fine * 0.22) * down;
-    h *= 1 + 0.1 * n(px / R * 1.4 + 9, 4.2, pz / R * 1.4 - 3);
+    const v = n(ca * 2.6 + o[0], rr * 2.4, sa * 2.6 + o[1]);
+    const ridged = 1 - Math.sqrt(v * v + 0.006);
+    const v2 = n(ca * 6.5 + o[2], rr * 4.5 + 3, sa * 6.5);
+    const ribs2 = 1 - Math.sqrt(v2 * v2 + 0.01);
+    const masses = n(px / R * 3.2 + o[1], h / H * 2.2 + 5, pz / R * 3.2 - o[2]);
+    const down = Math.pow(Math.sin(Math.PI * Math.min(1, rr / 0.93)), 0.7); // none at the summit, nor the foot
+    h += H * rocky * ((ridged - 0.74) * 0.16 + (ribs2 - 0.7) * 0.055 + masses * 0.08) * down;
+    h *= 1 + 0.08 * n(px / R * 1.4 + 9, 4.2, pz / R * 1.4 - 3);
     // ledges stepping down the flanks (折带): flattish shelves, then steeper drops
     if (terraces > 0) {
       const off = n(px * 0.05 + 7, 1.3, pz * 0.05) * ledge * 0.6;
@@ -203,7 +234,7 @@ export function build({ scene, P, rng }) {
     const x = rand.range(-175, 175);
     const z = rand.range(-155, 45);
     const R = rand.range(26, 46);
-    const H = THREE.MathUtils.clamp(R * rand.range(0.6, 1.0), 16, 44); // lower and broader than they are tall... nearly
+    const H = THREE.MathUtils.clamp(R * rand.range(0.7, 1.1), 18, 48); // (broad: their flanks flare out at the foot)
     // stay off the path, on solid ground (the canyon has its own pillars, see spectacles/vista.js),
     // and out of the garden's spots and the sight lines (to the waterfall, and from the lookout)
     if (P.distToPath(x, z) < R + 12 || P.cliffDist(x, z) > -R * 1.1) continue;

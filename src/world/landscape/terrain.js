@@ -51,7 +51,7 @@ export function build({ scene, P, places, rng }) {
     scene.add(new THREE.Mesh(g, inkMaterial({
       variant: "ground", tint: "ground", channel: "ground", climb: 0, noiseScale: 0.12, noiseAmp: 0.35,
       edge: 0.02, rimWidth: 0.06, rim: 0.8, near: 4, far: 40, minFar: 0, density: 0.16,
-      mist: 0.01, grain: 0.35, sil: 0, side: THREE.DoubleSide,
+      mist: 0.01, grain: 0.35, sil: 0, side: THREE.DoubleSide, rimFade: true,
     })));
   }
 
@@ -91,6 +91,7 @@ export function build({ scene, P, places, rng }) {
       channel: "far", climb: 0, noiseScale: 0.06, noiseAmp: 0.3, near: 20, far: 300, minFar: 0.2, density: 0.95,
       grain: 0.5, shade: 0.35, sil: 0.4, wash: 1, glow: 0.9, side: THREE.DoubleSide,
       mistBase: places.rim - 20, mist: places.rim - 6, mistFloor: 0, // fading down into the cloud
+      rimFade: true, // ...and away along the rim, to either side of the lookout
     }));
     face.frustumCulled = false;
     scene.add(face);
@@ -142,6 +143,7 @@ export function build({ scene, P, places, rng }) {
   const tuft = (x, z, n, height, spread) => {
     if (P.blocked(x, z, { by: "grass" }) || P.overCliff(x, z, 1) || P.slopeAt(x, z) > 0.45) return;
     if (bench && Math.hypot(x - bench.x, z - bench.z) < 9) return; // the crest by the bench: just the view
+    if (P.rimFade(x, z) > 0.02) return; // nor where the rim fades into mist
     for (let i = 0; i < n; i++) {
       blades.push({
         x: x + rand.range(-0.15, 0.15),

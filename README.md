@@ -49,7 +49,7 @@ colophon (`app/keepsake.js`). Sitting there, the trees and bamboo down in the va
 
 | To change… | Edit |
 |---|---|
-| **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume): labels, links, panel text (HTML ok) | `src/content.js` |
+| **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume, Source code): labels, links, panel text (HTML ok) | `src/content.js` |
 | **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `LAND`, `BRINK`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
 | **How it feels**: ink speed/reach, sketch distance, scroll speed, how soon you settle into standing still (`walk.stillAfter`, `stillSlack`, `stillEase`), intro timing, the colour stage | `src/config.js` |
 | Colours, fonts, overlay layout | `src/style.css`, top of `src/ink/material.js` |
@@ -87,13 +87,14 @@ src/
                      (groundAt, mirrored in ink/material.js), raycastGround (where a click or your
                      gaze meets it), the cliff, keepOnLand, reserve/blocked)
     landscape/       terrain (the ground, rising to the rim and ending at its cliff; stones, grass,
-                     the stream), mountains (massifs after the old painters: rounded summits,
-                     ridges, ledges, boulders on their crowns; the ink paints their 皴 strokes),
+                     the stream), mountains (massifs after the old painters: slightly peaked
+                     summits, smaller peaks along their ridges, rocky ribs, flanks flaring at the
+                     foot, ledges, boulders; the ink paints their 皴 strokes),
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)
     structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),
-                     the pavilion at the bamboo's end (Resume), the bridge, the stone steps up
-                     the rim, the bench
+                     the bridge, the pavilion by the waterfall's pool (Resume), the well in the
+                     meadows (well.js: Source code), the stone steps up the rim, the bench
     garden/          koi pond, plants (bamboo, plum, flowers), creatures (cranes, deer,
                      butterflies, the boat), critters (birds + rabbits that react to you),
                      landmarks (the GitHub / LinkedIn / Email rocks, scholar's rocks)

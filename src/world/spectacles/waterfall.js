@@ -17,7 +17,7 @@ export function build({ scene, P, places, rng }) {
   // into the face toward the walk, the falls pouring out of the cleft between them
   const ga = Math.atan2(dir.z, dir.x); // (massifGeometry's angles)
   const peak = P.keepOnLand(massifGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, {
-    lobes: 3, round: 1.3, flat: 2.4, terraces: 0.15, ridges: 0.8, crown: 1,
+    lobes: 3, summit: 1.7, flare: 1.9, peaks: 4, rocky: 1, terraces: 0.15, crown: 1,
     mainAt: { angle: ga + Math.PI, dist: 0.14 }, // (set back, behind the ravine)
     gully: { x: dir.x, z: dir.z, depth: 0.28, width: 0.3 },
     shoulders: [ // (either side of the ravine, clear of it: it runs down between them)

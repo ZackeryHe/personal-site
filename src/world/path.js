@@ -17,9 +17,27 @@ export const deckHeight = (s) => BRIDGE.hump * Math.pow(Math.max(0, 1 - (s / BRI
  * over the brow straight down into the valley, and none of the face (or the stairs up it).
  * (ink/material.js mirrors groundAt in GLSL: keep the two in step.)
  */
-export const LAND = { rim: 20, base: -36, foot: -24, brow: -3.2, footShare: 0.1, steep: 1.5, round: 0.035 };
+export const LAND = {
+  rim: 20, base: -36, foot: -24, brow: -3.2, footShare: 0.1, steep: 1.5, round: 0.035,
+  // the lookout is a promontory: to either side the ridge falls away (from `spread[0]` to
+  // `spread[1]` metres along it) to `low` of its height, down into the sea of cloud
+  spread: [10, 75], low: 0.18,
+};
+/** How high the ridge rises, `lat` metres along it from the lookout (0–1: see LAND.spread). */
+const ridgeK = (lat) => 1 - (1 - LAND.low) * smoothstepFn(Math.abs(lat), LAND.spread[0], LAND.spread[1]);
+function smoothstepFn(x, a, b) {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
 /** The cliff edge lies this far past the end of the walk (the bench is between them). */
 export const BRINK = 2.2;
+/**
+ * Along the rim, to either side of the lookout, the ink thins away into the paper (the ridge and
+ * its cliff fading into mist as they fall away, 留白): over this band of lateral distance (m), on
+ * the upper face, the crest and the cliff (from `from` metres short of the cliff edge outward).
+ * (ink/material.js mirrors rimFade in GLSL: keep the two in step.)
+ */
+export const RIM_FADE = { lat: [8, 30], from: [-22, -18] };
 
 const smoothstep = (x, a, b) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -146,9 +164,14 @@ export function makePath() {
     const d = cliffDist(x, z);
     if (d <= LAND.base) return 0;
     const lat = (x - brink.x) * right.x + (z - brink.z) * right.z; // metres along the rim
-    return LAND.rim * roll(lat) * landProfile(d);
+    return LAND.rim * roll(lat) * ridgeK(lat) * landProfile(d);
   };
   const rim = groundAt(brink.x, brink.z); // at the lookout
+  /** 0 → 1: how far the rim has faded away into mist at x, z (see RIM_FADE). */
+  const rimFade = (x, z) => {
+    const lat = (x - brink.x) * right.x + (z - brink.z) * right.z;
+    return smoothstep(cliffDist(x, z), ...RIM_FADE.from) * smoothstep(Math.abs(lat), ...RIM_FADE.lat);
+  };
   /** How steep the ground is at x, z (rise over run). */
   const slopeAt = (x, z) => Math.hypot(groundAt(x + 0.5, z) - groundAt(x - 0.5, z), groundAt(x, z + 0.5) - groundAt(x, z - 0.5));
   /**
@@ -190,6 +213,6 @@ export function makePath() {
 
   return {
     path, pathLen, distToPath, nearestT, sideAt, yawAt, heightAt, at,
-    end, endDir, brink, cliffDist, overCliff, keepOnLand, groundAt, slopeAt, raycastGround, rim, reserve, blocked,
+    end, endDir, brink, cliffDist, overCliff, keepOnLand, groundAt, slopeAt, raycastGround, rimFade, rim, reserve, blocked,
   };
 }

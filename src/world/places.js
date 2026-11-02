@@ -24,6 +24,7 @@ export const STOP_AT = {
   experience: 0.27, // the avenue of stone tablets (碑林)
   projects: 0.47,   // lanterns in the bamboo
   resume: 0.85,     // the pavilion on the waterfall pool's shore, its hanging scrolls (across the bridge)
+  source: 1.03,     // the well (源, "the source") in the meadows, on the way to the climb
   // scenery
   grove: 0.27,      // pines around the tablets
   river: 0.762,     // the bridge over the waterfall's stream
@@ -42,6 +43,7 @@ export const MARKERS = [
   { id: "experience", of: "experience", height: 3.4, radius: 30, nudge: 0.25 },
   { id: "projects", of: "projects", height: 3.0, radius: 30, nudge: 0.3 },
   { id: "resume", of: "resume", height: 7.8, radius: 34, nudge: 0.25 },
+  { id: "source", of: "source", height: 4.6, radius: 28, nudge: 0.3 },
 ];
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -96,6 +98,13 @@ export function planPlaces(P) {
   };
   places.bench.pos.y = P.groundAt(places.bench.pos.x, places.bench.pos.z);
 
+  // the well (Source code): beside the path through the meadows, on the side away from the rim
+  {
+    const t = STOPS.source;
+    const [a, b] = [P.at(t, 5.5), P.at(t, -5.5)];
+    const pos = P.cliffDist(a.x, a.z) < P.cliffDist(b.x, b.z) ? a : b;
+    places.source = { pos, faces: P.path.getPointAt(t) };
+  }
   places.contacts = { pos: places.links[1].pos.clone() };        // marker: over the middle rock
   places.experience = { pos: P.at(STOPS.experience, 0) };       // marker: over the avenue
   places.projects = { pos: places.lanterns[2].pos.clone() };    // marker: over the middle lantern
@@ -171,6 +180,8 @@ export function planPlaces(P) {
   r(places.pool.pos, places.pool.r + 0.4, { ground: true });
   r(places.waterfall.pos, places.waterfall.r + 4);
   for (const l of places.links) r(l.pos, 1.3, { ground: true });
+  r(places.source.pos, 4.5);                   // the well: no trees crowding it...
+  r(places.source.pos, 2.4, { ground: true }); // ...nor grass poking through its platform
   r(places.plumEntrance.pos, 4);
   r(pond.pos, pond.r + 0.6, { ground: true });
   r(pond.pos, pond.r + 3);

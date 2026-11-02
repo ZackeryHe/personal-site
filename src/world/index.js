@@ -9,6 +9,7 @@ import * as mountains from "./landscape/mountains.js";
 import * as flora from "./landscape/flora.js";
 import * as sky from "./landscape/sky.js";
 import * as structures from "./structures/structures.js";
+import * as well from "./structures/well.js";
 import * as pond from "./garden/pond.js";
 import * as plants from "./garden/plants.js";
 import * as creatures from "./garden/creatures.js";
@@ -29,8 +30,8 @@ import * as petals from "./effects/petals.js";
 const MODULES = [
   // landscape (the ground ends at the cliff)
   terrain, mountains, flora,
-  // built things along the path: tablets, lanterns, bridge, pavilion
-  structures,
+  // built things along the path: tablets, lanterns, bridge, pavilion; the well
+  structures, well,
   // the garden stroll, and the small lives in it
   pond, plants, creatures, landmarks, critters,
   // spectacles: the waterfall pool, the canyon at the end (vista before temple: it

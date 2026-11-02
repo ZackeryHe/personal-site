@@ -164,6 +164,7 @@ export function createColour({ renderer, scene, walker, world }) {
       if (world.distToPath(sx, sz) < 1.3 || world.blocked(sx, sz, { by: "grass" })) continue; // not on the path or water
       if (world.overCliff(sx, sz, 0.6)) continue; // nor out over the canyon, where there's no ground
       if (nearBench(sx, sz)) continue;           // nor around the bench at the end: just grass and the view
+      if (world.rimFade(sx, sz) > 0) continue;   // nor where the rim fades into mist
       addSprout(sx, sz, now, walker.point);
       b.sprouted++;
     }

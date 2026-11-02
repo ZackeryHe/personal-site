@@ -30,6 +30,11 @@ export const SITE = {
       id: "resume", label: "Resume", zh: "履历", href: "#",
       body: 'Placeholder. <a href="#">Download the PDF</a>.',
     },
+    {
+      // the well in the meadows (源, "the source"): this site's own source
+      id: "source", label: "Source code", zh: "源码", href: "https://github.com/ZackeryHe/personal-site",
+      body: 'Placeholder. How this walk was made: <a href="https://github.com/ZackeryHe/personal-site">its source, on GitHub</a>.',
+    },
     // the end: sit on the bench, turn round to the walk below you, and keep the painting
     { id: "painting", label: "The painting" },
   ],

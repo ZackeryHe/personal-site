@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { noise3 } from "./noise.js";
-import { LAND } from "../world/path.js";
+import { LAND, RIM_FADE } from "../world/path.js";
 
 export const PAPER = new THREE.Color("#efe7d6");
 export const INK = new THREE.Color("#161a21");
@@ -73,7 +73,15 @@ const landGLSL = /* glsl */ `
     float d = dot(rel, uLand.zw);
     float lat = dot(rel, vec2(-uLand.w, uLand.z));
     float roll = 1.0 + 0.22 * (sin(lat * 0.045 + 0.7) - sin(0.7)) + 0.1 * (sin(lat * 0.11 + 2.1) - sin(2.1));
-    return uLandHeight * roll * landProfile(d);
+    float ridge = 1.0 - ${f(1 - LAND.low)} * smoothstep(${f(LAND.spread[0])}, ${f(LAND.spread[1])}, abs(lat));
+    return uLandHeight * roll * ridge * landProfile(d);
+  }
+  // 0 → 1: how far the rim has faded into mist here (the same as path.js rimFade)
+  float rimFade(vec2 p) {
+    vec2 rel = p - uLand.xy;
+    float d = dot(rel, uLand.zw);
+    float lat = dot(rel, vec2(-uLand.w, uLand.z));
+    return smoothstep(${f(RIM_FADE.from[0])}, ${f(RIM_FADE.from[1])}, d) * smoothstep(${f(RIM_FADE.lat[0])}, ${f(RIM_FADE.lat[1])}, abs(lat));
   }
 `;
 
@@ -133,7 +141,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uTintWash, uTintInk;
   uniform float uTint;
   uniform vec3 uSun, uSunGlow;
-  uniform float uGlow, uSoftObj, uCun;
+  uniform float uGlow, uSoftObj, uCun, uRimFade;
   uniform float uAtmScale;
   ${landGLSL}
   #ifdef DECAL
@@ -180,6 +188,7 @@ const fragmentShader = /* glsl */ `
       // alpha 0.5 tells the watercolour pass to sketch its outline. Further out: nothing.
       float sketchMargin = (uSketchR - distance(vWorld.xz, uCam.xz)) / 15.0
                          + (blot - 0.5) * 0.8 * min(1.0, uSketchR / 20.0);
+      if (uRimFade > 0.5 && rimFade(vWorld.xz) > 0.5) discard; // (faded into the mist: not even drawn)
       if (uSketch > 0.5 && uSketchR > 1.0 && sketchMargin > 0.0) {
         gl_FragColor = vec4(uPaper, 0.5);
         return;
@@ -401,6 +410,12 @@ const fragmentShader = /* glsl */ `
   #endif
     vec3 col = mix(base, inkCol, clamp(ink, 0.0, 1.0));
     if (rockInk > 0.0) col = mix(col, mix(uInk, uFarTint, rockFar), clamp(rockInk, 0.0, 1.0));
+    // along the rim, away from the lookout, the ink thins away into the paper (留白) as the ridge
+    // falls away into the cloud, unevenly, like a wash
+    if (uRimFade > 0.5) {
+      float rf = rimFade(vWorld.xz);
+      col = mix(col, uPaper, clamp(rf * (0.9 + (blot - 0.5) * 0.5), 0.0, 0.92));
+    }
     gl_FragColor = vec4(col, flag);
   }
 `;
@@ -427,6 +442,7 @@ export function inkMaterial({
   glow = 0,                   // how much the setting sun warms its paper when you look toward the sun
   soft = false,               // fine detail (trees, bamboo) that softens when you sit at the lookout (ink/post.js)
   cun = 0,                    // texture strokes (皴) on a mountain built by massifGeometry (0 = none)
+  rimFade = false,            // fades back into the paper along the rim, away from the lookout (path.js RIM_FADE)
   washLit = null, washShade = null, // per-material colour wash (default ochre / indigo)
   map = null,                 // alpha texture for variant "decal"
   // colour stage: a TINTS name ("foliage", "mountain", ...), "none", or { wash, ink, amount }.
@@ -476,6 +492,7 @@ export function inkMaterial({
       uGlow: { value: glow },
       uSoftObj: { value: soft ? 1 : 0 },
       uCun: { value: cun },
+      uRimFade: { value: rimFade ? 1 : 0 },
       ...(washLit ? { uOchre: { value: washLit } } : {}),
       ...(washShade ? { uIndigo: { value: washShade } } : {}),
       ...(map ? { uMap: { value: map } } : {}),

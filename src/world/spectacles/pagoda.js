@@ -10,7 +10,7 @@ export function build({ scene, P: path, places, rng }) {
   const P = places.pagoda;
   // its knoll: a small rounded massif (kept on land, short of the cliff edge)
   const knoll = path.keepOnLand(massifGeometry(rand, P.pos.x, P.pos.z, P.r * 1.25, P.h, {
-    lobes: 2, round: 1.3, flat: 2.4, terraces: 0, crown: 0, ridges: 0.5,
+    lobes: 2, summit: 2.2, flare: 1.4, peaks: 0, rocky: 0.5, terraces: 0, crown: 0, // (a knoll: rounded)
   }), 2);
   scene.add(new THREE.Mesh(knoll, mountainMaterial({ cun: 1 })));
 
