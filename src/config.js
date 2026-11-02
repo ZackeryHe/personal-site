@@ -11,7 +11,9 @@ export const CONFIG = {
     eyeHeight: 1.7,
     wheel: 0.02,      // metres walked per wheel-delta unit
     key: 3,           // metres per ↑/↓ press
-    touch: 0.05,      // metres per pixel swiped
+    touch: 0.05,      // metres per pixel swiped (up or down)
+    touchLook: 2.4,   // a sideways drag across the whole screen turns your head this much (2 = edge to edge)
+    touchDecide: 12,  // px a finger moves before its swipe is decided: walking (mostly up/down) or looking (sideways)
     follow: 3,        // how quickly you catch up to where you scrolled (higher = snappier)
     lookYaw: 1.1,     // how far the mouse turns your head while walking (radians at the screen edge)
     lookYawStill: 1.95, // ...and once you've stopped: crane right round (~110°)

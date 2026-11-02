@@ -17,6 +17,7 @@ export const SITE = {
     "Click to fill the painting with colours.",
   ],
   stillHint: "linger — turn your head to look around", // shown the first time you stand still
+  stillHintTouch: "linger — drag sideways to look around", // ...on a phone
 
   // Your points along the walk (where they are: src/world/places.js).
   //   label:  the marker that floats beside it in the world, and its dot on the progress line

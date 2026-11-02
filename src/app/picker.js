@@ -14,39 +14,50 @@ export function createPicker({ camera, clickables, reach = 30, onOpen = () => {}
   let hovered = null;
   let onPage = false; // the pointer is over the page's own links, or the scroll
 
-  addEventListener("pointermove", (e) => {
+  const aim = (e) => {
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     onPage = overPage(e);
+  };
+  addEventListener("pointermove", aim);
+  addEventListener("pointerdown", aim); // (a tap: a finger needn't move before it)
+  addEventListener("pointerup", (e) => {
+    // a finger lifted isn't over anything any more (once its tap has been heard)
+    if (e.pointerType === "touch") setTimeout(() => ndc.set(9, 9), 300);
   });
-  // capture phase: runs before the ink flick (app/drops.js) and stops it
-  addEventListener("click", (e) => {
-    if (!hovered || overPage(e) || blocked()) return;
-    if (hovered.opens) {
-      e.stopImmediatePropagation();
-      onOpen(hovered.opens);
-      return;
-    }
-    if (!hovered.href) return;
-    e.stopImmediatePropagation();
-    if (hovered.href.startsWith("mailto:")) location.href = hovered.href; // the mail app, no blank tab
-    else window.open(hovered.href, "_blank", "noopener");
-  }, { capture: true });
-
   const owner = (obj) => clickables.find((c) => {
     for (let o = obj; o; o = o.parent) if (o === c.object) return true;
     return false;
   });
+  /** What's under the pointer, now. */
+  const pick = () => {
+    if (!objects.length || onPage || blocked()) return null;
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(objects, true)[0];
+    return hit ? owner(hit.object) : null;
+  };
+
+  // capture phase: runs before the ink flick (app/drops.js) and stops it. What's clicked is
+  // looked for there and then (a quick tap can be down, up and clicked between two frames)
+  addEventListener("click", (e) => {
+    if (overPage(e) || blocked()) return;
+    aim(e);
+    const it = pick();
+    if (!it) return;
+    if (it.opens) {
+      e.stopImmediatePropagation();
+      onOpen(it.opens);
+      return;
+    }
+    if (!it.href) return;
+    e.stopImmediatePropagation();
+    if (it.href.startsWith("mailto:")) location.href = it.href; // the mail app, no blank tab
+    else window.open(it.href, "_blank", "noopener");
+  }, { capture: true });
 
   return {
     get hovered() { return hovered; },
     update() {
-      if (!objects.length) return;
-      let next = null;
-      if (!onPage && !blocked()) {
-        ray.setFromCamera(ndc, camera);
-        const hit = ray.intersectObjects(objects, true)[0];
-        next = hit ? owner(hit.object) : null;
-      }
+      const next = pick();
       if (next === hovered) return;
       hovered?.hover?.(false);
       next?.hover?.(true);

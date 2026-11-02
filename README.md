@@ -26,7 +26,9 @@ Dev URL options (combine with `&`):
 e.g. the koi pond: `?t=0.09&instant&look=-0.75`; the painting at the end: `?t=1&inked`
 
 Controls: scroll / swipe / ↑↓ to walk, move the mouse to look, click the ground to flick ink,
-click the dots on the right to jump to a section. Stand still and you can turn your head much
+click the dots on the right to jump to a section. On a phone, each swipe does one thing: mostly up
+or down, you walk; mostly sideways, you drag the view round to look (`walk.touchLook`,
+`touchDecide` in `config.js`); a tap flicks ink, or opens what it's on. Stand still and you can turn your head much
 further; crane to the side and colour blooms where you look (see "The colour stage" below).
 The page opens on a greeting while the world is built (a great brush hanging overhead in a dim
 grey room, a thread of incense smoke curling up beside it, a drop of ink gathering at its tip as

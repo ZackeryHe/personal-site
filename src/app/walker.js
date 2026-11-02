@@ -3,7 +3,8 @@ import { CONFIG } from "../config.js";
 import { globals } from "../ink/material.js";
 
 // You: scroll / swipe / arrow keys move you along the path and the mouse turns your
-// head. As you approach one of your points, your head is nudged gently toward it.
+// head (on a phone: swipe up or down to walk, drag sideways to look round). As you approach one
+// of your points, your head is nudged gently toward it.
 // Stop, and you can crane right round.
 export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   const { path, pathLen, heightAt, markers, bench, painting, groundAt, raycastGround, endDir } = world;
@@ -36,24 +37,46 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     if (["ArrowUp", "w", "W"].includes(e.key)) walk(W.key);
     if (["ArrowDown", "s", "S"].includes(e.key)) walk(-W.key);
   });
-  let touchY = null;
-  addEventListener("touchstart", (e) => (touchY = e.touches[0].clientY), { passive: true });
-  addEventListener("touchmove", (e) => {
-    const y = e.touches[0].clientY;
-    walk((touchY - y) * W.touch);
-    touchY = y;
-  }, { passive: true });
   const restAt = { x: startLook, y: 0 }; // where the pointer last came to rest
-  addEventListener("pointermove", (e) => {
-    mouse.x = (e.clientX / innerWidth) * 2 - 1;
-    mouse.y = (e.clientY / innerHeight) * 2 - 1;
+  const lookAt = (x, y) => {
+    mouse.x = x;
+    mouse.y = y;
     // (a real move, not the hand's jitter)
     if (Math.abs(mouse.x - restAt.x) + Math.abs(mouse.y - restAt.y) > 0.025) {
       restAt.x = mouse.x;
       restAt.y = mouse.y;
       movedAt = performance.now();
     }
+  };
+  // a mouse: where it is is where you look
+  addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return; // (a finger: see below)
+    lookAt((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   });
+  // a finger: each swipe either walks or looks, never both. Which is decided as it starts and
+  // kept till you lift it: mostly up or down, you walk (as you'd scroll); mostly sideways, you
+  // turn your head, as if dragging the view round (a panorama): drag right, you look left
+  let touch = null; // { x, y, from, mode: null | "walk" | "look" }
+  addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    touch = { x: t.clientX, y: t.clientY, fromX: t.clientX, fromY: t.clientY, mode: null };
+  }, { passive: true });
+  addEventListener("touchmove", (e) => {
+    const t = e.touches[0];
+    if (!touch || !t) return;
+    if (!touch.mode) {
+      const dx = t.clientX - touch.fromX, dy = t.clientY - touch.fromY;
+      if (Math.hypot(dx, dy) < W.touchDecide) return; // (not decided yet: nothing moves)
+      touch.mode = Math.abs(dy) >= Math.abs(dx) ? "walk" : "look";
+    }
+    if (touch.mode === "walk") walk((touch.y - t.clientY) * W.touch);
+    else lookAt(clamp(mouse.x - ((t.clientX - touch.x) / innerWidth) * W.touchLook, -1, 1), mouse.y);
+    touch.x = t.clientX;
+    touch.y = t.clientY;
+  }, { passive: true });
+  const lift = () => (touch = null);
+  addEventListener("touchend", lift, { passive: true });
+  addEventListener("touchcancel", lift, { passive: true });
 
   // fine control near the centre of the screen; the big turn happens toward the edge
   const shaped = (x) => Math.sign(x) * Math.pow(Math.abs(x), W.lookCurve);
