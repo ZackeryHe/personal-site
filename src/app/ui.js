@@ -80,13 +80,12 @@ function panelElement(p) {
   if (p.titleCard) {
     // the opening note, on the right (the panels along the walk stay on the left)
     el.classList.add("station--intro");
-    el.innerHTML = `<div class="body"></div><p class="hint"></p>`;
+    el.innerHTML = `<div class="body"></div>`;
     for (const line of SITE.intro) {
       const para = document.createElement("p");
       para.textContent = line;
       el.querySelector(".body").appendChild(para);
     }
-    el.querySelector(".hint").textContent = SITE.hint;
   } else {
     el.innerHTML = `<h2><span class="zh"></span> <span class="heading"></span></h2><div class="body"></div>`;
     el.querySelector(".zh").textContent = p.zh || "";

@@ -20,7 +20,7 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
   const touch = matchMedia("(pointer: coarse)").matches; // (no looking round on a touch screen)
   const el = document.createElement("div");
   el.className = "keepsake";
-  el.innerHTML = `<button class="keepsake-copy" type="button"><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
+  el.innerHTML = `<button class="keepsake-copy" type="button"><span class="keepsake-label"></span><kbd title="or press C">C</kbd></button>`;
   document.body.appendChild(el);
   const label = el.querySelector(".keepsake-label");
   const button = el.querySelector(".keepsake-copy");
@@ -139,7 +139,7 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
   });
   // S: keep just what you're looking at now
   addEventListener("keydown", (e) => {
-    if ((e.key === "s" || e.key === "S") && !e.metaKey && !e.ctrlKey && shown > 0.5) {
+    if ((e.key === "c" || e.key === "C") && !e.metaKey && !e.ctrlKey && shown > 0.5) {
       framed = walker.gaze;
       keep();
     }

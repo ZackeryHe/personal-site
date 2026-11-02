@@ -7,7 +7,6 @@ export const SITE = {
     "Stand still and appreciate the scenery.",
     "Click to fill the painting with colours.",
   ],
-  hint: "scroll or swipe to walk · move to look · click to flick ink",
   stillHint: "linger — turn your head to look around", // shown the first time you stand still
 
   // Your points along the walk (where they are: src/world/places.js).
@@ -17,7 +16,10 @@ export const SITE = {
   points: [
     { id: "start", label: "Start", titleCard: true },
     // the lotus pond: a label over three carved rocks on its near shore (click them)
-    { id: "contacts", label: "Contacts", zh: "联系" },
+    {
+      id: "contacts", label: "Contacts", zh: "联系",
+      body: '<a href="https://github.com/">GitHub</a> · <a href="https://www.linkedin.com/">LinkedIn</a> · <a href="mailto:hello@example.com">Email</a>',
+    },
     { id: "github", label: "GitHub", href: "https://github.com/" },
     { id: "linkedin", label: "LinkedIn", href: "https://www.linkedin.com/" },
     { id: "email", label: "Email", href: "mailto:hello@example.com" }, // placeholder address
