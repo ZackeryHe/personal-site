@@ -20,13 +20,14 @@ export const CONFIG = {
     lookPitchStill: 6,
     lookUp: 0.8,      // resting gaze tilt (metres up at 10 m ahead): more sky + mountains, less ground
     bob: 0.04,        // footstep bob
-    stillSpeed: 0.4,  // below this many m/s you count as standing still...
-    stillAfter: 0.35, // ...after this many seconds
+    stillAfter: 0.25, // seconds after you last scrolled...
+    stillSlack: 0.8,  // ...and within this many metres of gliding to a halt, you're standing still
+    stillEase: 6,     // how quickly you settle into standing still (higher = quicker)
     craneLean: 0.3,   // metres your head shifts toward the side you crane to
     craneRoll: 0.06,  // head tilt when craning (radians)
     nudgeEase: 1.2,   // how gently your head turns toward a point as you approach (lower = gentler)
     sitHeight: 1.15,  // eye height on the bench at the end
-    sitEase: 0.9,     // how slowly you sit down (lower = slower)
+    sitEase: 1.2,     // how slowly you sit down (lower = slower)
     frameEase: 0.6,   // how slowly the view settles into the painting's framing once you're sitting
     // (sitting, you turn round to the painting's view: see places.painting in src/world/places.js)
   },
@@ -34,12 +35,12 @@ export const CONFIG = {
   // 设色, the colour stage: stand still and crane to the side, and colour blooms where you look
   colour: {
     crane: 0.3,          // how far you need to turn (0–1) for colour to start coming in
-    fill: 3.5,           // seconds of looking for a bloom to come in fully (it starts faint)
+    fill: 2,             // seconds of looking for a bloom to come in fully (it starts faint)
     gazeRange: [3, 32],  // metres: where on the ground your gaze can land (looking down)
     levelGaze: 11,       // metres out a bloom lands when you're looking level or up
     spacing: 4.5,        // turn your gaze further than this and a new bloom starts there
     reach: [14, 95],     // metres: near things (plants, rocks, water), far things (mountains)
-    grow: [1.5, 3],      // seconds for the colour to spread out once it lands
+    grow: [0.8, 1.8],    // seconds for the colour to spread out once it lands
     sproutsPerBloom: 16, // flowers that spring up as a bloom fills
     sproutSpread: 5.5,   // ...within this many metres
     maxSprouts: 300,

@@ -72,9 +72,9 @@ stopped to look.
 8. **The painting (留念)**: sit on the bench and you turn round, and there's the whole walk laid
    out below you as one painting, framed by two old pines: the pavilion and the bamboo, the
    bridge, the waterfall and the pagoda, the ranges behind, and in it the ink you left as you
-   walked and the colour where you stopped to look, so no two are the same. Keep looking and it
-   offers itself: one click and it's on your clipboard, sealed, with a line of colophon. (Turn
-   your head right round and the canyon and the sun are still there.)
+   walked and the colour where you stopped to look, so no two are the same. Any view from the
+   bench is yours to keep: look around (right round to the canyon and the sun), rest your eyes on
+   one and it's framed, and one click puts it on your clipboard, sealed, with a line of colophon.
 
 Along the way, birds come down to peck ahead of you and scatter as you approach, and rabbits
 sit up in the grass, then bolt. Petals drift down around you: plum blossom early on, gold and

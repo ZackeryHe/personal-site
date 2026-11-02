@@ -120,7 +120,7 @@ export function createColour({ renderer, scene, walker, world }) {
   let nextFly = 0;
 
   // ---------- blooms: colour comes in faint where you look, and fills in as you keep looking ----------
-  const FAINT = 0.12; // how faint a new bloom starts
+  const FAINT = 0.22; // how faint a new bloom starts
   const blooms = [];  // { i (field drop), x, z, strength, sprouted, butterflies, colour }
   let active = null;  // the bloom you're looking at right now
   const splashes = []; // blooms from ink you've flicked, still filling in
@@ -198,7 +198,7 @@ export function createColour({ renderer, scene, walker, world }) {
 
     /** ready: false until the opening has played */
     update(now, dt, ready) {
-      const craning = ready && walker.still > 0.5 && Math.abs(walker.crane) > C.crane;
+      const craning = ready && walker.still > 0.3 && Math.abs(walker.crane) > C.crane;
       if (craning) {
         walker.gazePoint(gaze);
         // looked somewhere new? colour starts coming in there (or carries on, if it's begun there before)

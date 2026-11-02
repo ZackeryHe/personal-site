@@ -14,7 +14,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let target = clamp01(startT);
   let progress = target;
   let speed = 0;     // m/s along the path (smoothed, signed)
-  let stillFor = 0;  // seconds since you stopped
+  let walkedAt = -Infinity; // when you last asked to walk (scroll, key, swipe, a jump): ms
   let still = 0;     // 0 walking → 1 standing still (eases in)
   let crane = 0;     // -1 craning left … 1 craning right (only while still)
   let nudge = 0;     // radians your head is turned toward a nearby point
@@ -22,7 +22,12 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let anchor = null; // where the mouse was as you sat down: seated, you look around from there
   let framing = 0;   // 0 → 1: the painter's framing (a longer lens, a clearer distance), eased
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
-  const walk = (metres) => (target = clamp01(target + metres / pathLen));
+  let movedAt = 0;  // when the pointer last moved (ms)
+  let held = null;  // a gaze to hold the view at, whatever the pointer does (see hold())
+  const walk = (metres) => {
+    target = clamp01(target + metres / pathLen);
+    walkedAt = performance.now();
+  };
 
   addEventListener("wheel", (e) => walk(e.deltaY * W.wheel), { passive: true });
   addEventListener("keydown", (e) => {
@@ -39,6 +44,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   addEventListener("pointermove", (e) => {
     mouse.x = (e.clientX / innerWidth) * 2 - 1;
     mouse.y = (e.clientY / innerHeight) * 2 - 1;
+    movedAt = performance.now();
   });
 
   // fine control near the centre of the screen; the big turn happens toward the edge
@@ -96,14 +102,22 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     get still() { return still; },
     get crane() { return crane; },
     get seated() { return seated; },
-    /** 0–1: how squarely you're looking at the painting (seated, and not looking away) */
-    get facingPainting() {
-      if (!anchor || seated < 0.98) return 0;
-      return squarely();
+    /** Where the pointer says to look (screen −1…1), and how long it's been resting there (s). */
+    get gaze() { return { x: mouse.x, y: mouse.y }; },
+    get restingFor() { return (performance.now() - movedAt) / 1000; },
+    /** Hold the view at a gaze (from `gaze`) whatever the pointer does, or let go (null). */
+    hold(g) { held = g; },
+    /** Finish turning to where you're looking, now (the next update puts the camera there). */
+    settleLook() {
+      mouse.sx = held ? held.x : mouse.x;
+      mouse.sy = held ? held.y : mouse.y;
     },
     point,   // where you are on the path (updated every frame)
     tangent, // which way the path runs
-    jumpTo(t) { target = clamp01(t); },
+    jumpTo(t) {
+      target = clamp01(t);
+      walkedAt = performance.now();
+    },
 
     /** Where your gaze meets the ground (clamped to CONFIG.colour.gazeRange). */
     gazePoint(out) {
@@ -142,14 +156,17 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       progress += (target - progress) * Math.min(1, dt * W.follow);
       if (dt > 0) speed += (((progress - before) * pathLen) / dt - speed) * Math.min(1, dt * 5);
 
-      // standing still? (eases in after a moment; any step snaps you out of it)
-      const stopped = Math.abs(speed) < W.stillSpeed && Math.abs(target - progress) * pathLen < 0.3;
-      stillFor = stopped ? stillFor + dt : 0;
-      const wantStill = stillFor > W.stillAfter ? 1 : 0;
-      still += (wantStill - still) * Math.min(1, dt * (wantStill ? 2.5 : 6));
+      // standing still? As soon as you stop scrolling and you've all but glided to a halt (it
+      // eases in quickly; any step snaps you out of it)
+      const sinceWalked = (performance.now() - walkedAt) / 1000;
+      const stopped = sinceWalked > W.stillAfter && Math.abs(target - progress) * pathLen < W.stillSlack;
+      const wantStill = stopped ? 1 : 0;
+      still += (wantStill - still) * Math.min(1, dt * (wantStill ? W.stillEase : 6));
 
-      mouse.sx += (mouse.x - mouse.sx) * Math.min(1, dt * 4);
-      mouse.sy += (mouse.y - mouse.sy) * Math.min(1, dt * 4);
+      const gx = held ? held.x : mouse.x;
+      const gy = held ? held.y : mouse.y;
+      mouse.sx += (gx - mouse.sx) * Math.min(1, dt * 4);
+      mouse.sy += (gy - mouse.sy) * Math.min(1, dt * 4);
       // craning: turning your head well to the side (seated: away from the painting)
       const turned = mouse.sx - (anchor ? anchor.x : 0);
       crane = Math.sign(turned) * still * smoothstep(Math.abs(turned), 0.3, 0.75);

@@ -252,6 +252,17 @@ html, body, #scene, a, button { cursor: none; }
   transition: border-color 0.2s, background 0.2s;
 }
 .keepsake-copy:hover { border-color: var(--seal); background: rgba(239, 231, 214, 1); }
+.keepsake-copy kbd {
+  margin-left: 0.15rem;
+  padding: 0 0.35rem;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  opacity: 0.55;
+  border: 1px solid rgba(29, 33, 40, 0.35);
+  border-radius: 3px;
+}
+@media (pointer: coarse) { .keepsake-copy kbd { display: none; } }
 .keepsake-seal {
   display: inline-grid;
   place-items: center;
@@ -265,6 +276,27 @@ html, body, #scene, a, button { cursor: none; }
   border-radius: 2px;
   text-shadow: none;
 }
+
+/* ink corner marks round the screen: the view framed for keeping */
+.frame-marks {
+  position: fixed;
+  inset: 5vh 4vw;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.45s;
+}
+.frame-marks.on { opacity: 1; }
+.frame-marks i {
+  position: absolute;
+  width: clamp(22px, 3.2vw, 40px);
+  height: clamp(22px, 3.2vw, 40px);
+  border: 0 solid rgba(29, 33, 40, 0.55);
+}
+.frame-marks i:nth-child(1) { left: 0; top: 0; border-width: 2px 0 0 2px; }
+.frame-marks i:nth-child(2) { right: 0; top: 0; border-width: 2px 2px 0 0; }
+.frame-marks i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 2px 2px; }
+.frame-marks i:nth-child(4) { right: 0; bottom: 0; border-width: 0 2px 2px 0; }
 
 /* ---------- The greeting while the world is built (src/app/loader.js) ----------
    Paper with ink washes drifting across it, faint ranges, a brush hanging on its cord with a

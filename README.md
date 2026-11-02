@@ -35,8 +35,10 @@ Walk all the way to the end, up the stone steps onto the rim, and you sit down o
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
 colour where you stopped to look. It's the same view whichever way you were looking
 (`places.painting` in `world/places.js`); move the mouse to look around (right round to the
-canyon at the edges of the screen). Keep looking at it and it offers to copy itself to your
-clipboard, framed, with a seal and a line of colophon (`app/keepsake.js`).
+canyon at the edges of the screen). Any view from the bench is yours to keep: rest your eyes on
+one and it's framed (ink corner marks show it); hover "Copy this view" and you're turned back to
+it, and one click (or S) puts it on your clipboard, rendered afresh with a seal and a line of
+colophon (`app/keepsake.js`).
 
 ## Where to edit what
 
@@ -44,7 +46,7 @@ clipboard, framed, with a seal and a line of colophon (`app/keepsake.js`).
 |---|---|
 | **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume): labels, links, panel text (HTML ok) | `src/content.js` |
 | **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `RIM`, `RISE`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
-| **How it feels**: ink speed/reach, sketch distance, scroll speed, intro timing, the colour stage | `src/config.js` |
+| **How it feels**: ink speed/reach, sketch distance, scroll speed, how soon you settle into standing still (`walk.stillAfter`, `stillSlack`, `stillEase`), intro timing, the colour stage | `src/config.js` |
 | Colours, fonts, overlay layout | `src/style.css`, top of `src/ink/material.js` |
 
 ## How the code is laid out
@@ -60,7 +62,8 @@ src/
     walker.js        you: input, moving along the path, camera, standing still + craning,
                      a gentle nudge toward your points as you approach them; sitting at the end
                      and turning round to the painting
-    keepsake.js      the painting at the end: rendered afresh, sealed, copied to your clipboard
+    keepsake.js      views from the bench to keep: framed when you rest on one, rendered afresh,
+                     sealed, copied to your clipboard
     drops.js         the ink: opening drop, footsteps, thrown-ahead ink, click-to-flick
     colour.js        the colour stage: blooms where you crane (and a little where you click),
                      flowers, butterflies

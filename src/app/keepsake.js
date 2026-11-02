@@ -5,21 +5,24 @@ import { WatercolorPass } from "../ink/post.js";
 import { inkBleed } from "./ui.js";
 
 // 留念 — the keepsake. Sit on the bench at the end and you turn round to the walk laid out
-// below you: the ink you left as you walked, the colour where you stopped to look. Keep looking
-// at it, and it offers itself: one click and the painting (rendered afresh, framed the same way
-// every time, with a seal and a line of colophon) is on your clipboard.
+// below you: the ink you left as you walked, the colour where you stopped to look. Any view from
+// the bench is yours to keep: look around, and whatever you rest your eyes on is framed (ink
+// corner marks show it). Hovering the button turns you back to the framed view, so you see what
+// you'll get; one click and it's on your clipboard, rendered afresh with a seal and a line of
+// colophon. (Or press S to keep just what you're looking at.)
 
 const SIZE = [1800, 1200]; // the keepsake's pixels (3:2)
 
 /** Linear → sRGB, for the pixels read back from the (linear, float) render target. */
 const toSRGB = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
 
-export function createKeepsake({ renderer, scene, walker, world }) {
+export function createKeepsake({ renderer, scene, camera, walker }) {
+  const touch = matchMedia("(pointer: coarse)").matches; // (no looking round on a touch screen)
   const el = document.createElement("div");
   el.className = "keepsake";
   el.innerHTML = `
     <p class="keepsake-line"><span class="zh">留念</span><span class="keepsake-text"></span></p>
-    <button class="keepsake-copy" type="button"><span class="keepsake-seal" aria-hidden="true"></span><span class="keepsake-label"></span></button>`;
+    <button class="keepsake-copy" type="button"><span class="keepsake-seal" aria-hidden="true"></span><span class="keepsake-label"></span><kbd title="or press S">S</kbd></button>`;
   document.body.appendChild(el);
   const text = el.querySelector(".keepsake-text");
   const label = el.querySelector(".keepsake-label");
@@ -29,26 +32,42 @@ export function createKeepsake({ renderer, scene, walker, world }) {
     text.textContent = line;
     label.textContent = action;
   };
-  say("Your painting: the ink you left on the walk, the colour where you stopped to look.", "Copy it to your clipboard");
+  const invite = () => say(
+    touch ? "Your painting: the ink you left on the walk, the colour where you stopped to look."
+      : "Look around, and rest on any view you like: it's yours to keep.",
+    "Copy this view",
+  );
+  invite();
   const set = inkBleed(el);
 
-  let shown = 0;   // 0 → 1 as it writes itself in
-  let looked = 0;  // seconds you've been looking at the painting
-  let busy = false;
+  // ink corner marks round the screen: the view that's framed for keeping
+  const marks = document.createElement("div");
+  marks.className = "frame-marks";
+  marks.innerHTML = "<i></i><i></i><i></i><i></i>";
+  document.body.appendChild(marks);
 
-  /** Render the painting (offscreen) and return it as a PNG blob, with its seal and colophon. */
+  let shown = 0;       // 0 → 1 as it writes itself in
+  let settledFor = 0;  // seconds you've been sat right down (turned round)
+  let framed = null;   // the gaze of the view that's framed (walker.gaze), null when standing
+  let marksFor = 0;    // seconds left showing the corner marks
+  let overPanel = false;
+  let busy = false;
+  el.addEventListener("pointerenter", () => (overPanel = true));
+  el.addEventListener("pointerleave", () => (overPanel = false));
+
+  /** Render the view you're keeping (offscreen) as a PNG blob, with its seal and colophon. */
   async function paint() {
     const [w, h] = SIZE;
-    const cam = new THREE.PerspectiveCamera(40, w / h, 0.5, 900);
-    walker.paintingView(cam);
+    // finish turning to the view (the held one, if you're on the button), and take it from there
+    walker.settleLook();
+    walker.update(0);
+    const cam = camera.clone();
     cam.aspect = w / h;
     cam.updateProjectionMatrix();
+    cam.updateMatrixWorld();
 
-    // the shaders' sense of where you are and how clear the distance is: as seen from the bench
     const camWas = globals.uCam.value.clone();
-    const atmWas = globals.uAtmScale.value;
-    globals.uCam.value.copy(cam.position);
-    globals.uAtmScale.value = world.painting.clarity;
+    globals.uCam.value.copy(cam.position); // (the shaders' sense of where you are)
     const pass = new WatercolorPass(renderer);
     pass.setPixelSize(w, h);
     const out = new THREE.WebGLRenderTarget(w, h, { type: THREE.FloatType });
@@ -58,7 +77,6 @@ export function createKeepsake({ renderer, scene, walker, world }) {
       renderer.readRenderTargetPixels(out, 0, 0, w, h, pixels);
     } finally {
       globals.uCam.value.copy(camWas);
-      globals.uAtmScale.value = atmWas;
       pass.dispose();
       out.dispose();
     }
@@ -108,11 +126,12 @@ export function createKeepsake({ renderer, scene, walker, world }) {
     if (busy) return;
     busy = true;
     say("Painting it…", "One moment");
+    marksFor = 1.2;
     const blob = paint(); // (a promise: the clipboard waits for it, still inside your click)
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("no clipboard");
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      say("It's on your clipboard: paste it anywhere.", "Copy it again");
+      say("It's on your clipboard: paste it anywhere. Rest on another view to keep that too.", "Copy this view");
     } catch {
       // no image clipboard here (or it was refused): save it as a file instead
       const a = document.createElement("a");
@@ -120,7 +139,7 @@ export function createKeepsake({ renderer, scene, walker, world }) {
       a.download = `${SITE.name.toLowerCase().replace(/\s+/g, "-")}-painting.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      say("Saved as a picture in your downloads.", "Save it again");
+      say("Saved as a picture in your downloads. Rest on another view to keep that too.", "Copy this view");
     } finally {
       busy = false;
     }
@@ -129,18 +148,44 @@ export function createKeepsake({ renderer, scene, walker, world }) {
     e.stopPropagation(); // not an ink flick
     keep();
   });
+  // S: keep just what you're looking at now
+  addEventListener("keydown", (e) => {
+    if ((e.key === "s" || e.key === "S") && !e.metaKey && !e.ctrlKey && shown > 0.5) {
+      framed = walker.gaze;
+      keep();
+    }
+  });
 
   return {
     paint, // (the painting as a PNG blob: handy from the console with ?debug)
     /** call once per frame */
     update(dt) {
-      const facing = walker.facingPainting > 0.9;
-      looked = facing ? looked + dt : 0;
-      const want = looked > 1.4 || (busy && shown > 0.5) ? 1 : walker.seated > 0.5 && shown > 0.5 && walker.facingPainting > 0.3 ? 1 : 0;
-      shown += (want - shown) * Math.min(1, dt * (want ? 1.1 : 3));
+      const sitting = walker.seated > 0.7;
+      settledFor = walker.seated > 0.85 ? settledFor + dt : 0;
+      if (!sitting) {
+        framed = null;
+        walker.hold(null);
+      } else {
+        if (!framed) framed = walker.gaze; // to begin with: the painting you turn round to
+        // rest your eyes on a view (not the button) and it's framed for keeping
+        const g = walker.gaze;
+        if (!overPanel && !busy && walker.restingFor > 0.6 && Math.abs(g.x - framed.x) + Math.abs(g.y - framed.y) > 0.04) {
+          framed = g;
+          marksFor = 1.4;
+          invite();
+        }
+        // on the button, you're turned back to the framed view: what you see is what you keep
+        walker.hold(overPanel || busy ? framed : null);
+      }
+      marksFor = Math.max(0, marksFor - dt);
+      marks.classList.toggle("on", sitting && shown > 0.5 && (marksFor > 0 || overPanel));
+
+      const want = settledFor > 0.3 || busy ? 1 : 0; // once you've all but turned round
+      shown += (want - shown) * Math.min(1, dt * (want ? 1.6 : 3));
       const k = shown < 0.01 ? 0 : shown > 0.99 ? 1 : shown * shown * (3 - 2 * shown);
       set(k);
       el.style.pointerEvents = k > 0.6 ? "auto" : "none";
+      if (k < 0.6) overPanel = false;
     },
   };
 }

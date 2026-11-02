@@ -143,9 +143,9 @@ export function planPlaces(P) {
       return eye.clone().setY(0).addScaledVector(facing, Math.cos(a) * dist).addScaledVector(r, Math.sin(a) * dist);
     },
   };
-  // two old pines on the slope below the bench, one each side, frame the painting's foreground
+  // an old pine on the slope below the bench frames the painting's foreground on the right
+  // (none on the left: it would stand beside the stairs, in the middle of the climb)
   places.painting.frame = [
-    { pos: places.painting.toward(-34, 15), h: 8 },
     { pos: places.painting.toward(37, 17), h: 7 },
   ];
   // scholar's rocks: around the pond, by the entrance, before the pavilion
