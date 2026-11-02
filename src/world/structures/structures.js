@@ -1,13 +1,17 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { inkMaterial, SEAL_RED } from "../../ink/material.js";
+import { SITE } from "../../content.js";
 import { STOPS } from "../places.js";
 import { BRIDGE, deckHeight } from "../path.js";
 
 const at = (geo, x, y, z) => geo.translate(x, y, z);
 
-// Bridge, lanterns in the bamboo (Projects), the pavilion (Resume), and the avenue of tablets (Experience).
+// Bridge, lanterns in the bamboo (Projects), the pavilion, and the avenue of tablets (Experience).
+// The tablets are carved with your experience and the lit lanterns are your projects
+// (content.js): click one (places.clickables) and its story is read in that point's panel.
 export function build({ scene, P, places }) {
+  places.clickables ??= [];
   // built things: outlined, with upward faces left mostly as bare paper
   const stoneMat = inkMaterial({
     channel: "mid", bias: 0.12, climb: 0.04, noiseScale: 0.4, noiseAmp: 0.3,
@@ -126,8 +130,8 @@ export function build({ scene, P, places }) {
     if (steps.length) scene.add(new THREE.Mesh(mergeGeometries(steps), stoneMat));
   }
 
-  // ---------- Stone lanterns along the bamboo path: one per project ----------
-  // open-sided light box (four little posts) with a warm glow inside
+  // ---------- Stone lanterns along the bamboo path: the lit ones are your projects ----------
+  // open-sided light box (four little posts), with a warm glow inside the lit ones
   const lanternGeo = mergeGeometries([
     at(new THREE.CylinderGeometry(0.4, 0.5, 0.3, 6), 0, 0.15, 0),
     at(new THREE.CylinderGeometry(0.15, 0.15, 1.0, 6), 0, 0.8, 0),
@@ -136,24 +140,39 @@ export function build({ scene, P, places }) {
     at(new THREE.ConeGeometry(0.62, 0.45, 4), 0, 2.07, 0),
     at(new THREE.SphereGeometry(0.1, 6, 4), 0, 2.37, 0),
   ]);
-  const glowMat = inkMaterial({
+  const glowMat = () => inkMaterial({
     channel: "mid", bias: 0.12, climb: 0.04, noiseScale: 1, near: 4, far: 45, density: 0.55,
     mist: 0.01, grain: 4, shade: 0.9, sil: 0, tint: "none", color: new THREE.Color("#d9a24a"),
   });
+  const glowGeo = new THREE.BoxGeometry(0.4, 0.38, 0.4).translate(0, 1.6, 0);
+  const hitGeo = new THREE.BoxGeometry(1, 2.6, 1).translate(0, 1.3, 0); // (what you click: the whole lantern)
   const lanterns = new THREE.InstancedMesh(lanternGeo, stoneMat, places.lanterns.length);
-  const glows = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.38, 0.4).translate(0, 1.6, 0), glowMat, places.lanterns.length);
   const dummy = new THREE.Object3D();
-  places.lanterns.forEach(({ t, pos }, i) => {
+  places.lanterns.forEach(({ t, pos, project }, i) => {
     dummy.position.copy(pos);
     dummy.rotation.y = P.yawAt(t) + Math.PI / 4;
     dummy.updateMatrix();
     lanterns.setMatrixAt(i, dummy.matrix);
-    glows.setMatrixAt(i, dummy.matrix);
+    const p = SITE.projects?.[project];
+    if (!p) return; // (unlit)
+    const glow = new THREE.Mesh(glowGeo, glowMat());
+    glow.position.copy(dummy.position);
+    glow.rotation.copy(dummy.rotation);
+    scene.add(glow);
+    const hit = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial());
+    hit.position.copy(pos);
+    hit.visible = false; // (never drawn; the picker's ray still finds it)
+    scene.add(hit);
+    const density = glow.material.uniforms.uDensity;
+    places.clickables.push({
+      object: hit,
+      opens: `projects:${project}`,
+      label: p.name,
+      hover: (on) => (density.value = on ? 0.95 : 0.55), // it burns brighter under the pointer
+    });
   });
-  for (const m of [lanterns, glows]) {
-    m.frustumCulled = false;
-    scene.add(m);
-  }
+  lanterns.frustumCulled = false;
+  scene.add(lanterns);
 
   // ---------- Pavilion (Resume) ----------
   const pavParts = [
@@ -200,13 +219,21 @@ export function build({ scene, P, places }) {
   pav.rotation.y = P.yawAt(STOPS.pavilion);
   scene.add(pav);
 
-  // ---------- Steles: stone tablets stamped with seals ----------
+  // ---------- Steles: stone tablets, carved, and stamped with a seal ----------
   const sealMat = inkMaterial({
     channel: "mid", bias: 0.3, climb: 0.02, noiseScale: 1.2, noiseAmp: 0.25, near: 3, far: 40,
     density: 0.9, mist: 0.01, grain: 3, sil: 0, color: SEAL_RED,
   });
-  /** A stele of the given size, placed at pos and turned to face the point `faces`. */
-  const stele = (pos, faces, s = 1) => {
+  const carvedInk = (map) => inkMaterial({
+    variant: "decal", channel: "mid", bias: 0.05, climb: 0.02, noiseScale: 0.8, noiseAmp: 0.25,
+    near: 3, far: 40, density: 0.9, mist: 0.01, grain: 2, sil: 0, tint: "none",
+    color: new THREE.Color("#2a2621"), map,
+  });
+  /**
+   * A stele of the given size, placed at pos and turned to face the point `faces`; carved
+   * with an entry from your experience (content.js), if there's one for it.
+   */
+  const stele = (pos, faces, s = 1, entry = null) => {
     const g = new THREE.Group();
     g.add(new THREE.Mesh(
       mergeGeometries([
@@ -216,19 +243,38 @@ export function build({ scene, P, places }) {
       ]),
       stoneMat
     ));
-    for (const [x, y, size] of [[0.55, 3.4, 0.55], [-0.6, 1.6, 0.4], [0.5, 1.2, 0.32]]) {
+    const seals = entry ? [[-0.68, 0.95, 0.42]] : [[0.55, 3.4, 0.55], [-0.6, 1.6, 0.4], [0.5, 1.2, 0.32]];
+    for (const [x, y, size] of seals) {
       const seal = new THREE.Mesh(new THREE.PlaneGeometry(size, size), sealMat);
       seal.position.set(x, y, 0.235);
       seal.rotation.z = (x > 0 ? -1 : 1) * 0.04;
       g.add(seal);
     }
+    let carving = null;
+    if (entry) {
+      carving = new THREE.Mesh(new THREE.PlaneGeometry(2.16, 3.42), carvedInk(inscription(entry)));
+      carving.position.set(0, 2.55, 0.24); // just proud of the face
+      g.add(carving);
+    }
     g.scale.setScalar(s);
     g.position.copy(pos);
     g.rotation.y = Math.atan2(faces.x - pos.x, faces.z - pos.z);
     scene.add(g);
+    return { group: g, carving };
   };
-  // Experience: an avenue of tablets (碑林) either side of the path, one per role
-  for (const s of places.steles) stele(s.pos, s.faces, 0.5);
+  // Experience: an avenue of tablets (碑林) either side of the path, one per role, in order
+  places.steles.forEach((s, i) => {
+    const entry = SITE.experience?.[i];
+    const { group, carving } = stele(s.pos, s.faces, 0.5, entry);
+    if (!carving) return;
+    const density = carving.material.uniforms.uDensity;
+    places.clickables.push({
+      object: group,
+      opens: `experience:${i}`,
+      label: entry.name,
+      hover: (on) => (density.value = on ? 1.35 : 0.9), // the carving darkens under the pointer
+    });
+  });
 
   // ---------- Behind the tablets: whitewashed garden walls (粉墙) under dark tile coping,
   // with lattice windows (漏窗), and on the left a moon gate (月洞门) to look through ----------
@@ -289,6 +335,82 @@ export function build({ scene, P, places }) {
 }
 
 // Square hip roof with concave sides and upturned corners, corners over the pillars.
+/**
+ * What's carved on a tablet (an entry of your experience, content.js): its dates small at the
+ * top, its name as large as it fits (on one line, or two if one would be too small), and the
+ * role beneath, in italics. White on clear: an alpha texture for the carving's ink.
+ */
+function inscription({ name, role, carved, tag }) {
+  const W = 600, H = 950; // (the carving's plane: 2.16 × 3.42)
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  const SERIF = '"Cormorant Garamond", Georgia, serif';
+  const maxW = W * 0.84;
+  /** Words onto lines no wider than maxW in this font. */
+  const wrap = (text, font) => {
+    ctx.font = font;
+    const lines = [];
+    let line = "";
+    for (const w of String(text).split(" ")) {
+      const next = line ? `${line} ${w}` : w;
+      if (line && ctx.measureText(next).width > maxW) {
+        lines.push(line);
+        line = w;
+      } else line = next;
+    }
+    return line ? [...lines, line] : lines;
+  };
+  /** The largest size the name fits at on at most maxLines lines (and not too tall), or null. */
+  const fit = (maxLines) => {
+    for (let size = 150; size >= 64; size -= 4) {
+      const font = `600 ${size}px ${SERIF}`;
+      const lines = wrap(name, font);
+      if (lines.length <= maxLines && lines.length * size <= H * 0.42 && lines.every((l) => ctx.measureText(l).width <= maxW)) {
+        return { size, lines, font };
+      }
+    }
+    return null;
+  };
+  const draw = () => {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (carved) {
+      ctx.font = `italic 400 56px ${SERIF}`;
+      ctx.fillText(carved, W / 2, H * 0.1);
+      ctx.fillRect(W / 2 - 46, H * 0.155, 92, 4);
+    }
+    const one = fit(1);
+    const { size, lines, font } = (one && one.size >= 96 ? one : null) ?? fit(2) ?? fit(4) ?? { size: 64, lines: [name], font: `600 64px ${SERIF}` };
+    ctx.font = font;
+    const top = H * 0.4 - ((lines.length - 1) * size) / 2;
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, top + i * size));
+    let y = top + (lines.length - 1) * size + size * 0.72;
+    if (tag) {
+      ctx.font = `600 40px ${SERIF}`;
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
+      ctx.fillText(tag.toUpperCase(), W / 2, y + 6);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+      y += 56;
+    }
+    const roleLines = wrap(role, `italic 400 58px ${SERIF}`);
+    const ry = Math.max(y + 46, H * 0.69);
+    roleLines.forEach((l, i) => ctx.fillText(l, W / 2, ry + i * 64));
+    tex.needsUpdate = true;
+  };
+  draw();
+  Promise.all([
+    document.fonts?.load(`600 100px "Cormorant Garamond"`),
+    document.fonts?.load(`italic 400 58px "Cormorant Garamond"`),
+  ]).then(draw).catch(() => {});
+  return tex;
+}
+
 export function roofGeometry(halfSize, height, lift) {
   const g = new THREE.ConeGeometry(1, 1, 32, 8, true);
   const pos = g.attributes.position;

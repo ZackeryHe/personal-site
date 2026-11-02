@@ -37,6 +37,8 @@ body::after {
   max-width: min(440px, 84vw);
   visibility: hidden;
 }
+/* a soft halo of paper behind the words, so they read over bamboo and stone (as the markers do) */
+#stations .station { text-shadow: 0 0 2px var(--paper), 0 0 8px var(--paper), 0 0 14px var(--paper); }
 
 .station h1 { font-size: clamp(2.6rem, 6vw, 4.5rem); font-weight: 400; letter-spacing: 0.02em; }
 .station h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 400; margin-bottom: 0.4em; }
@@ -46,6 +48,28 @@ body::after {
 .station a { color: inherit; text-decoration-color: var(--seal); text-underline-offset: 3px; pointer-events: auto; }
 .station .hint { font-style: italic; opacity: 0.6; margin-top: 0.6em; font-size: 1rem; }
 .zh { font-family: "Ma Shan Zheng", serif; color: var(--seal); margin-right: 0.2em; }
+
+/* a tablet's or a lantern's story, read in its panel (src/app/stories.js): it inks in afresh */
+.station .body.rewrite { animation: rewrite 0.6s ease both; }
+@keyframes rewrite { from { opacity: 0; filter: blur(3px); } to { opacity: 1; filter: blur(0); } }
+.station .story-title { font-size: 1.6rem; line-height: 1.15; }
+.story-tag { font-size: 0.95rem; font-style: italic; opacity: 0.7; margin-left: 0.2em; }
+.station .story-meta { font-style: italic; opacity: 0.75; margin: 0.15em 0 0.5em; }
+.story-notes { list-style: none; padding: 0; margin: 0; }
+.story-notes li { position: relative; padding-left: 1.1em; }
+.story-notes li + li { margin-top: 0.3em; }
+.story-notes li::before {
+  content: "";
+  position: absolute;
+  left: 0.1em;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  background: var(--seal);
+  opacity: 0.85;
+}
+.station .story-more { margin-top: 0.5em; opacity: 0.85; font-size: 1.05rem; }
+@media (prefers-reduced-motion: reduce) { .station .body.rewrite { animation: none; } }
 
 
 /* ---------- Markers for your points, floating in the world ---------- */
@@ -96,6 +120,9 @@ body::after {
   transition: text-decoration-color 0.2s;
 }
 .marker-label.link:hover .en { text-decoration-color: var(--seal); }
+/* the small names over the lit lanterns (your projects) */
+.marker-label.small .en { font-size: 1rem; }
+.marker-label.small .en::before { width: 5px; height: 5px; margin-right: 6px; }
 
 /* ---------- The pointer: a dot of ink (src/app/pointer.js) ---------- */
 html, body, #scene, a, button { cursor: none; }
@@ -309,4 +336,134 @@ body.is-greeting::after { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   #loader.is-ready .loader-status { animation: none; }
+}
+
+/* ---------- The resume, on a hanging scroll (src/app/reader.js) ----------
+   A cord, a rod, silk mounting round the paper, and a roller with jade knobs (as the scroll
+   the drop falls into, at the start); it unrolls (.hanging-mount's height) when it opens. */
+#reader { position: fixed; inset: 0; z-index: 15; }
+#reader[hidden] { display: none; }
+.reader-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 231, 214, 0.55);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+#reader.open .reader-veil { opacity: 1; }
+.hanging {
+  position: absolute;
+  left: 50%;
+  top: 4vh;
+  width: min(580px, 92vw);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  outline: none;
+  filter: drop-shadow(0 10px 22px rgba(40, 32, 24, 0.18));
+}
+.hanging-cord {
+  width: 120px;
+  height: 30px;
+  margin-bottom: -2px;
+  border: 1.5px solid #3b2f25;
+  border-bottom: none;
+  border-radius: 60px 60px 0 0;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+#reader.open .hanging-cord { opacity: 0.75; }
+.hanging-rod {
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(#6a5440, #2c2018);
+}
+.hanging-mount {
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  padding: 26px 20px 30px;
+  background: #6f7f8c repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 6px);
+  transition: height 0.9s cubic-bezier(0.45, 0.1, 0.2, 1); /* (the roller drops, and settles) */
+}
+.hanging-paper {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 30px 34px 34px;
+  background: var(--paper);
+  border: 1px solid #c8b78f;
+  color: var(--ink);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 33, 40, 0.25) transparent;
+}
+.hanging-roller {
+  position: relative;
+  width: calc(100% + 30px);
+  height: 18px;
+  border-radius: 9px;
+  background: linear-gradient(#5a4632, #241a13);
+}
+.hanging-roller i {
+  position: absolute;
+  top: -2px;
+  width: 16px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #a9bdb0, #d6e3da 45%, #9fb3a6);
+}
+.hanging-roller i:first-child { left: -14px; }
+.hanging-roller i:last-child { right: -14px; }
+.hanging-close {
+  margin-top: 12px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: italic 1.05rem "Cormorant Garamond", Georgia, serif;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  opacity: 0;
+  transition: opacity 0.4s 0.5s, text-decoration-color 0.2s;
+}
+#reader.open .hanging-close { opacity: 0.7; }
+.hanging-close:hover { text-decoration-color: var(--seal); }
+
+/* what's on it */
+.hanging-paper header { text-align: center; margin-bottom: 1.1rem; }
+.hanging-paper h2 { font-size: 2.3rem; font-weight: 400; letter-spacing: 0.02em; }
+.resume-line { font-style: italic; font-size: 1.1rem; opacity: 0.8; }
+.resume-links { margin-top: 0.3rem; font-size: 1.02rem; }
+.hanging-paper a { color: inherit; text-decoration-color: var(--seal); text-underline-offset: 3px; }
+.hanging-paper section { margin-top: 1.1rem; }
+.hanging-paper h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding-bottom: 0.15rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(29, 33, 40, 0.18);
+}
+.hanging-paper h3 .zh { font-weight: 400; }
+.entry + .entry { margin-top: 0.6rem; }
+.entry-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 1.12rem; }
+.entry-name { font-weight: 600; }
+.entry-tag { font-weight: 400; font-style: italic; font-size: 0.92rem; opacity: 0.7; }
+.entry-when { font-style: italic; font-size: 1rem; opacity: 0.75; white-space: nowrap; }
+.entry-sub { font-style: italic; font-size: 1rem; opacity: 0.8; }
+.entry-text { font-size: 1.02rem; line-height: 1.4; margin-top: 0.1rem; }
+.skills { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; font-size: 1.02rem; }
+.skills dt { font-weight: 600; }
+.resume-pdf { margin-top: 1.2rem; text-align: center; font-style: italic; }
+@media (max-width: 600px) {
+  .hanging { top: 3vh; }
+  .hanging-mount { padding: 18px 12px 22px; }
+  .hanging-paper { padding: 20px 18px 24px; }
+  .entry-head { flex-direction: column; gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hanging-mount, .reader-veil, .hanging-cord, .hanging-close { transition: none; }
 }

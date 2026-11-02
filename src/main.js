@@ -12,6 +12,7 @@ import { createUI, createMarkers, createHint } from "./app/ui.js";
 import { createPointer } from "./app/pointer.js";
 import { createPicker } from "./app/picker.js";
 import { createKeepsake } from "./app/keepsake.js";
+import { createReader } from "./app/reader.js";
 import { createLoader } from "./app/loader.js";
 import { createGreeting } from "./app/greeting.js";
 
@@ -65,19 +66,25 @@ async function boot() {
     field, scene, camera, walker, world, instant: params.has("instant"), inked: params.has("inked"),
     onFlick: (x, z) => colour.splash(x, z, globals.uTime.value), // a little colour bleeds out of a splat
   });
+  const reader = createReader({ walker }); // the resume, on a hanging scroll
+  // open something on the page (a link in a panel, a marker, a tablet or lantern you click):
+  // "resume" unrolls the scroll; "experience:2", "projects:0" are read in that point's panel
+  const open = (what) => (what === "resume" ? reader.open() : ui.show(what));
   const ui = createUI({
     onJump: (t) => {
       walker.jumpTo(t);
       drops.dropAt(t);
     },
+    onOpen: open,
   });
-  const markers = createMarkers(world.markers); // your points, floating in the world
-  const picker = createPicker({ camera, clickables: world.clickables }); // the GitHub / LinkedIn / Email rocks
-  const pointer = createPointer({ canSplat: () => !picker.hovered }); // a dot of ink
+  const markers = createMarkers(world.markers, { onOpen: open }); // your points, floating in the world
+  // things to click in the world: the GitHub / LinkedIn / Email rocks, the tablets, the lit lanterns
+  const picker = createPicker({ camera, clickables: world.clickables, onOpen: open, blocked: () => reader.isOpen });
+  const pointer = createPointer({ canSplat: () => !picker.hovered && !reader.isOpen }); // a dot of ink
   const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
   const hint = createHint(SITE.stillHint);
   const keepsake = createKeepsake({ renderer, scene, camera, walker }); // the views from the bench, to keep
-  if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake, field }; // poke around in the console
+  if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake, field, ui, reader, picker }; // poke around in the console
   let walked = 0; // metres, so the hint waits until you've had a wander
   const fps = import.meta.env.DEV || params.has("fps") ? createFps() : null;
 

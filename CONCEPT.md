@@ -49,10 +49,12 @@ stopped to look.
    out over the scroll from where it lands, until it's all you see.
 2. **Contacts, at the lotus pond**: three small carved rocks on its near shore, **GitHub ↗**,
    **LinkedIn ↗** and **Email ↗** (click them).
-3. **Experience**: an avenue of stone tablets (碑林), one per role, between whitewashed garden
+3. **Experience**: an avenue of stone tablets (碑林), one per role, each carved with it (click one
+   and you read it), oldest first: UC Irvine, AWS, Forge Rewards, Databricks, Databricks again. Between whitewashed garden
    walls (粉墙) with dark tile coping, lattice windows (漏窗) and a moon gate (月洞门), bamboo
    peeking over. The waterfall is already visible at the end of it.
-4. **Projects**: stone lanterns, warmly lit, lining the path through the bamboo.
+4. **Projects**: stone lanterns lining the path through the bamboo; the three that are lit, warm,
+   are your projects, their names floating over them (click one and you read it).
 5. **The waterfall**: you come out of the bamboo facing it. Its mountain is a massif after the
    old painters (Dong Yuan, Huang Gongwang, Fan Kuan): slightly peaked summits, smaller peaks
    breaking its ridgelines, rocky ribs, flanks flaring out at the foot, long hemp-fibre strokes
@@ -61,8 +63,9 @@ stopped to look.
    the shallows, a fisherman drifts on the pool, deer graze by its stream, which runs under a
    stone arch bridge.
 6. **Resume**: at the bridge, floating over a crane wading in the pool's shallows on its left.
-   Across the bridge, the pavilion on the pool's shore, the pagoda on its knoll behind; its
-   hanging scrolls could be the pages of your resume, the falls beside it.
+   Open it and the resume unrolls on a hanging scroll (立轴): a cord, a rod, silk round the
+   paper, a roller with jade knobs, like the scroll the drop falls into at the start. Across the
+   bridge, the pavilion on the pool's shore, the pagoda on its knoll behind, the falls beside it.
 7. **Source code (源码)**: across the meadows, a well under its own little roof, a windlass and
    bucket over it: 源, the source (a spring's, and this site's: Source code ↗). Then to the foot
    of a rock escarpment, and up a sky ladder (天梯) of stone steps cut straight up its face,
@@ -123,8 +126,8 @@ off to the right, the red sun you'll walk toward. (A moon gate is still an optio
 - **Moon gate entrance** (圆洞门): a short white wall with a round opening that frames
   the first view. More "garden", less "wild".
 
-- **Real content on the tablets, lanterns and scrolls:** each Experience tablet carries a role,
-  each lantern a project (click to open it), each scroll a page of the resume.
+- **The pavilion's hanging scrolls:** the tablets carry your roles and the lit lanterns your
+  projects now; the six scrolls in the pavilion are still blank. A line of poetry on each?
 - **Guestbook seals:** at the cliff edge, visitors stamp a small seal of their own. That's the
   colophon tradition; it needs a tiny backend later.
 - **Sound:** wind, the waterfall, a few guqin notes when a section writes itself in.

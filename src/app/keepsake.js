@@ -153,7 +153,7 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
       settledFor = walker.seated > 0.85 ? settledFor + dt : 0;
       if (!sitting) {
         framed = null;
-        walker.hold(null);
+        walker.hold(null, "keepsake");
       } else {
         if (!framed) framed = walker.gaze; // to begin with: the painting you turn round to
         // rest your eyes on a view (not the button) and it's framed for keeping
@@ -164,7 +164,7 @@ export function createKeepsake({ renderer, scene, camera, walker }) {
           if (!saidAt) invite();
         }
         // on the button, you're turned back to the framed view: what you see is what you keep
-        walker.hold(overPanel || busy ? framed : null);
+        walker.hold(overPanel || busy ? framed : null, "keepsake");
       }
       if (saidAt && performance.now() > saidAt) invite(); // (back to offering the view)
       marksFor = Math.max(0, marksFor - dt);

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { SITE } from "../content.js";
 import { STOPS } from "../world/places.js";
+import { story } from "./stories.js";
 
 // HTML overlay: your points' panels and markers, which bleed in like ink, plus the
 // progress line and the occasional hint.
@@ -98,22 +99,47 @@ function panelElement(p) {
 /**
  * Panels that write themselves in at each stop, and the progress line's dots: one for each
  * point with a panel (a body), or with a stop of its own in world/places.js (e.g. Contacts).
+ * A panel can be rewritten with a story (a tablet's, a lantern's: stories.js) while you're
+ * there; it goes back to what it said when you walk on. onOpen(what): a link in a panel
+ * that opens something here (data-opens: "experience:2", "resume", ...).
  */
-export function createUI({ onJump }) {
+export function createUI({ onJump, onOpen = () => {} }) {
   const container = document.getElementById("stations");
   const stations = SITE.points
     .filter((p) => p.titleCard || p.body || p.id in STOPS)
     .map((p) => {
       if (!(p.id in STOPS)) console.warn(`content.js: point "${p.id}" has no stop in world/places.js`);
-      const station = { at: STOPS[p.id] ?? 0, label: p.label, later: p.panelLater || 0 };
+      const station = { id: p.id, at: STOPS[p.id] ?? 0, label: p.label, later: p.panelLater || 0 };
       if (p.titleCard || p.body) {
         station.el = panelElement(p);
         container.appendChild(station.el);
         station.set = inkBleed(station.el);
+        station.body = station.el.querySelector(".body");
+        station.plain = station.body.innerHTML; // what it says until you open something in it
       }
       return station;
     });
   const panels = stations.filter((s) => s.el);
+
+  /** Write html into a panel's body: it bleeds in afresh. */
+  function rewrite(s, html) {
+    s.body.innerHTML = html;
+    s.reading = html !== s.plain;
+    s.body.classList.remove("rewrite");
+    void s.body.offsetWidth; // (so the animation starts again)
+    s.body.classList.add("rewrite");
+  }
+  // links in the panels that open things here, and "back" to what the panel said
+  container.addEventListener("click", (e) => {
+    const a = e.target.closest?.("[data-opens], [data-back]");
+    if (!a) return;
+    e.preventDefault();
+    e.stopPropagation(); // (not an ink flick)
+    if (a.hasAttribute("data-back")) {
+      const s = panels.find((s) => s.el.contains(a));
+      if (s) rewrite(s, s.plain);
+    } else onOpen(a.dataset.opens);
+  });
 
   // dots on the progress line: click to walk there
   const bar = document.getElementById("progress");
@@ -138,8 +164,19 @@ export function createUI({ onJump }) {
         let k = clamp01((1 - Math.abs(progress - s.at - s.later) / 0.07) * 1.6);
         if (s === panels[0]) k = Math.min(k, introText); // the opening note waits for the first drop
         s.set(ease(k));
+        if (k <= 0 && s.reading) { // walked on: it'll say what it said, next time
+          s.body.innerHTML = s.plain;
+          s.reading = false;
+        }
       }
       dot.style.top = `calc(${(progress * 100).toFixed(2)}% - 4px)`;
+    },
+    /** Read a tablet's or a lantern's story ("experience:2", "projects:0") in its panel. */
+    show(what) {
+      const st = story(what);
+      const s = st && panels.find((s) => s.id === st.point);
+      if (s) rewrite(s, st.html);
+      return !!s;
     },
   };
 }
@@ -162,19 +199,29 @@ export function createHint(text) {
 
 /**
  * Your points' markers, floating beside the things that stand for them
- * (world.markers, from MARKERS in world/places.js; text and links from content.js).
+ * (world.markers, from MARKERS in world/places.js; text and links from content.js), and small
+ * ones of their own (m.label, m.small: the names over the lit lanterns). A marker with an
+ * href is a link; one that opens something here (p.opens / m.opens) calls onOpen(what).
  */
-export function createMarkers(markers) {
+export function createMarkers(markers, { onOpen = () => {} } = {}) {
   const layer = document.getElementById("markers");
   const items = markers.map((m) => {
-    const p = pointById(m.id) || { label: m.id };
-    const el = document.createElement(p.href ? "a" : "div");
-    el.className = p.href ? "marker-label link" : "marker-label";
+    const p = m.label ? { label: m.label, opens: m.opens } : pointById(m.id) || { label: m.id };
+    const link = p.href || p.opens;
+    const el = document.createElement(link ? "a" : "div");
+    el.className = `marker-label${link ? " link" : ""}${m.small ? " small" : ""}`;
     if (p.href) {
       el.href = p.href;
       el.target = "_blank";
       el.rel = "noopener";
       el.addEventListener("click", (e) => e.stopPropagation()); // following a link isn't an ink flick
+    } else if (p.opens) {
+      el.href = `#${p.opens.replace(":", "-")}`;
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // (nor is this)
+        onOpen(p.opens);
+      });
     }
     el.innerHTML = `${p.zh ? '<span class="zh"></span>' : ""}<span class="en"></span>`;
     if (p.zh) el.querySelector(".zh").textContent = p.zh;

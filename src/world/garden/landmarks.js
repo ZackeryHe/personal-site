@@ -118,7 +118,7 @@ export async function build({ scene, P, places, rng, breathe }) {
   for (let i = 0; i < 514; i++) rand();
 
   // Contacts: smaller rocks on the pond's near shore, carved with their names. Clicking one opens it.
-  places.clickables = [];
+  places.clickables ??= []; // (the tablets and lanterns are in it already: structures.js)
   for (const l of places.links) {
     await breathe(); // (each carved rock is a few ms)
     const point = SITE.points.find((p) => p.id === l.id);

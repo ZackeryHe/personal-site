@@ -24,7 +24,8 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let climbing = 0;  // how steeply the way ahead rises (eased): you look up the steps as you climb
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
   let movedAt = 0;  // when the pointer last moved (ms)
-  let held = null;  // a gaze to hold the view at, whatever the pointer does (see hold())
+  const holds = new Map(); // who's holding the view still, and at what gaze, whatever the pointer does (see hold())
+  const heldGaze = () => holds.values().next().value ?? null; // (the first to hold it)
   const walk = (metres) => {
     target = clamp01(target + metres / pathLen);
     walkedAt = performance.now();
@@ -107,10 +108,17 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     /** Where the pointer says to look (screen −1…1), and how long it's been resting there (s). */
     get gaze() { return { x: mouse.x, y: mouse.y }; },
     get restingFor() { return (performance.now() - movedAt) / 1000; },
-    /** Hold the view at a gaze (from `gaze`) whatever the pointer does, or let go (null). */
-    hold(g) { held = g; },
+    /**
+     * Hold the view at a gaze (from `gaze`) whatever the pointer does, or let go (null). `by`:
+     * who's holding it (the keepsake, the resume scroll): each lets go of only its own hold.
+     */
+    hold(g, by = "you") {
+      if (g) holds.set(by, g);
+      else holds.delete(by);
+    },
     /** Finish turning to where you're looking, now (the next update puts the camera there). */
     settleLook() {
+      const held = heldGaze();
       mouse.sx = held ? held.x : mouse.x;
       mouse.sy = held ? held.y : mouse.y;
     },
@@ -162,6 +170,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       const wantStill = stopped ? 1 : 0;
       still += (wantStill - still) * Math.min(1, dt * (wantStill ? W.stillEase : 6));
 
+      const held = heldGaze();
       const gx = held ? held.x : mouse.x;
       const gy = held ? held.y : mouse.y;
       mouse.sx += (gx - mouse.sx) * Math.min(1, dt * 4);

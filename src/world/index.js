@@ -3,6 +3,7 @@ import { makePath, LAND } from "./path.js";
 import { globals } from "../ink/material.js";
 import { planPlaces, MARKERS } from "./places.js";
 import { rng } from "./random.js";
+import { SITE } from "../content.js";
 
 import * as terrain from "./landscape/terrain.js";
 import * as mountains from "./landscape/mountains.js";
@@ -79,6 +80,15 @@ export async function buildWorld(scene, { onProgress = () => {} } = {}) {
     ...m,
     pos: places[m.of].pos.clone().add(new THREE.Vector3(0, m.height ?? 0, 0)),
   }));
+  // ...and a small name over each lit lantern, your projects (click one to read it)
+  for (const l of places.lanterns ?? []) {
+    const p = SITE.projects?.[l.project];
+    if (!p) continue;
+    markers.push({
+      id: `project-${l.project}`, label: p.name, small: true, opens: `projects:${l.project}`, radius: 14,
+      pos: l.pos.clone().add(new THREE.Vector3(0, 2.85, 0)),
+    });
+  }
 
   return {
     ...P,

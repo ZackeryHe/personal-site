@@ -72,7 +72,8 @@ export function planPlaces(P) {
     // ---------- the garden ----------
     pond: { pos: P.at(T(0.13), -9), r: 5.5 },    // koi, lotus (on its own: nothing competes with it)
     // Experience: an avenue of tablets; none in the middle on the left, where the moon gate
-    // in the garden wall behind opens a view through
+    // in the garden wall behind opens a view through. They're carved with your experience
+    // (content.js), one each, in the order you pass them
     steles: [0.235, 0.27, 0.305].flatMap((g) => [-3.3, 3.3]
       .filter((side) => !(g === 0.27 && side < 0))
       .map((side) => ({ t: T(g), pos: P.at(T(g), side), faces: P.at(T(g - 0.04), 0) }))),
@@ -80,7 +81,11 @@ export function planPlaces(P) {
     // a few clumps of bamboo peeking over the garden walls behind the tablets
     wallBamboo: [-6, -2, 2, 6].flatMap((d) => [-1, 1].map((side) =>
       P.at(STOPS.experience + d / P.pathLen, side * (7.4 + (d % 4 === 0 ? 0.6 : 0))))),
-    lanterns: [0.4, 0.44, 0.48, 0.52, 0.56].map((g, i) => ({ t: T(g), pos: P.at(T(g), i % 2 ? 1.8 : -1.8) })), // Projects
+    // Projects: stone lanterns either side of the bamboo path; the middle three are lit, one
+    // for each of your projects (content.js: project is its index there), in the order you pass them
+    lanterns: [0.4, 0.44, 0.48, 0.52, 0.56].map((g, i) => ({
+      t: T(g), pos: P.at(T(g), i % 2 ? 1.8 : -1.8), project: [null, 0, 1, 2, null][i],
+    })),
     meadow: { pos: P.at(T(0.66), 8), r: 4.5 },   // deer, wildflowers, butterflies, by the stream
     plumPavilion: { pos: P.at(T(0.635), -6.2) }, // plum tree where the bamboo opens onto the waterfall
     cranes: { pos: V() },                     // placed by garden/creatures.js

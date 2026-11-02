@@ -50,7 +50,7 @@ colophon (`app/keepsake.js`). Sitting there, the trees and bamboo down in the va
 
 | To change… | Edit |
 |---|---|
-| **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume, Source code): labels, links, panel text (HTML ok) | `src/content.js` |
+| **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume, Source code): labels, links, panel text (HTML ok); your `experience` (carved on the tablets, in the order you pass them), `projects` (the lit lanterns) and the `resume` scroll (plus `resume.pdf`, to offer a PDF from `public/`) | `src/content.js` |
 | **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `LAND`, `BRINK`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
 | **How it feels**: ink speed/reach, sketch distance, scroll speed, how soon you settle into standing still (`walk.stillAfter`, `stillSlack`, `stillEase`), intro timing, the colour stage | `src/config.js` |
 | Colours, fonts, overlay layout | `src/style.css`, top of `src/ink/material.js` |
@@ -77,8 +77,11 @@ src/
                      flowers, butterflies
     pointer.js       the pointer: a dot of ink (takes in colour, spreads into a ring over links,
                      spatters on click)
-    picker.js        clickable things in the world (the GitHub / LinkedIn / Email rocks)
-    ui.js            panels + markers that bleed in like ink, progress dots, the hint
+    picker.js        clickable things in the world (the GitHub / LinkedIn / Email rocks, the
+                     tablets, the lit lanterns)
+    ui.js            panels + markers that bleed in like ink, progress dots, the hint; a panel
+                     can be rewritten with a tablet's or a lantern's story (stories.js)
+    reader.js        the resume, on a hanging scroll that unrolls (the Resume marker opens it)
   ink/               the rendering "engine"
     field.js         top-down map of how far ink has spread (from the drops)
     material.js      every object's ink look: spreading edge, washes, sketch, variants
@@ -96,7 +99,7 @@ src/
                      foot, ledges, boulders; the ink paints their 皴 strokes),
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)
-    structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),
+    structures/      the avenue of tablets (Experience, carved), lanterns in the bamboo (Projects: the lit ones),
                      the bridge (Resume: over a crane wading on its left), the pavilion by the
                      waterfall's pool, the well in the
                      meadows (well.js: Source code), the stone steps up the rim, the bench
