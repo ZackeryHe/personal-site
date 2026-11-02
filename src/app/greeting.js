@@ -15,6 +15,7 @@ const SIZE = 1.5; // how big the brush is (it should loom)
 const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
 const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
 const SCROLL = { width: 9, depth: 2.9 }; // (a handscroll: long, and narrow)
+const SPLAT_SCALE = 3; // the splatter's spread, in screens across (so it goes on past them, over the scroll)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -77,24 +78,43 @@ export function createGreeting(renderer) {
   // ---------- the world, painting itself onto the scroll ----------
   // Where the drop lands, the world (drawn live into worldTarget by main.js, its own first ink
   // spreading from that same drop) spreads out over the scroll's paper with a ragged ink edge.
-  // It's a rectangle the shape of your screen; you come down over it, levelling out, until it
+  // Its middle is the shape of your screen; you come down over it, levelling out, until that
   // fills your view exactly. Then it is just what the world draws on the screen, and the world
   // can take over without a seam.
   const worldTarget = new THREE.WebGLRenderTarget(1, 1);
+  // The splatter is much bigger than your screen (SPLAT_SCALE), so its ragged edge keeps on
+  // going out over the scroll (only over its paper: ink doesn't hang in the air). Inside the
+  // middle, screen-shaped part it is exactly the world; out beyond that, where the world draws
+  // nothing, its colour is estimated: the world's own edge, softened, giving way to its paper.
   const painting = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), // (uv up = -z: "up" as you'll look down on it)
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      uniforms: { tWorld: { value: worldTarget.texture }, uSpread: { value: 0 }, uAspect: { value: 1 }, uMax: { value: 1 } },
+      uniforms: {
+        tWorld: { value: worldTarget.texture },
+        uSpread: { value: 0 },       // how far the ink has spread (in screen heights, from the drop)
+        uAspect: { value: 1 },
+        uScale: { value: SPLAT_SCALE },
+        uBounds: { value: new THREE.Vector4() }, // the scroll's paper (world x0, z0, x1, z1)
+        uPaperTone: { value: new THREE.Color("#efe7d6").multiplyScalar(0.93) }, // (the world's paper, its vignette and all)
+      },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
-        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        varying vec2 vWorld;
+        void main() {
+          vUv = uv;
+          vWorld = (modelMatrix * vec4(position, 1.0)).xz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
       `,
       fragmentShader: /* glsl */ `
         uniform sampler2D tWorld;
-        uniform float uSpread, uAspect, uMax;
+        uniform float uSpread, uAspect, uScale;
+        uniform vec4 uBounds;
+        uniform vec3 uPaperTone;
         varying vec2 vUv;
+        varying vec2 vWorld;
         float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float n(vec2 p) {
           vec2 i = floor(p), f = fract(p);
@@ -102,13 +122,41 @@ export function createGreeting(renderer) {
           return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
         }
         void main() {
-          vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
-          float d = length(p) + (n(p * 5.0) - 0.5) * 0.22 + (n(p * 17.0) - 0.5) * 0.06; // (a ragged, inky edge)
-          float a = 1.0 - smoothstep(uSpread - 0.05, uSpread, d);
-          vec3 c = texture2D(tWorld, vUv).rgb;
-          float rim = exp(-pow((uSpread - d) / 0.035, 2.0)) * (1.0 - smoothstep(0.9, 1.0, uSpread / uMax)); // (ink pooled at its edge)
-          c = mix(c, vec3(0.05, 0.055, 0.07), rim * 0.55);
-          gl_FragColor = vec4(c, a);
+          // only on the scroll's paper
+          if (vWorld.x < uBounds.x || vWorld.x > uBounds.z || vWorld.y < uBounds.y || vWorld.y > uBounds.w) discard;
+          vec2 q = (vUv - 0.5) * uScale + 0.5;             // where this is in the world's frame (0 → 1 on screen)
+          vec2 p = (q - 0.5) * vec2(uAspect, 1.0);          // ...in screen heights, from the drop
+          // the splatter's edge: ragged, with lobes and fine fraying
+          float d = length(p) + (n(p * 3.0) - 0.5) * 0.35 + (n(p * 9.0) - 0.5) * 0.12 + (n(p * 30.0) - 0.5) * 0.03;
+          float inside = uSpread - d; // > 0: ink has reached here
+          float a = smoothstep(-0.01, 0.02, inside);
+          // spattered droplets flung just beyond the edge
+          float flung = step(0.9, n(p * 26.0)) * smoothstep(0.3, 0.02, -inside) * step(inside, 0.0);
+          // the world, where there is one; beyond it, its own edge softened, giving way to paper
+          vec2 qc = clamp(q, 0.0, 1.0);
+          vec3 world = texture2D(tWorld, q).rgb;
+          float beyond = length(max(abs(q - 0.5) - 0.5, 0.0)); // how far outside the screen's frame
+          vec3 c = world;
+          if (beyond > 0.0) {
+            // the world's edge nearest here, blurred well (so it doesn't smear into streaks), and
+            // giving way to the world's paper a little way out
+            vec3 blurred = vec3(0.0);
+            for (int i = -2; i <= 2; i++) {
+              for (int j = -2; j <= 2; j++) {
+                blurred += texture2D(tWorld, clamp(q, 0.12, 0.88) + vec2(float(i), float(j)) * 0.05).rgb; // (from a little way in: a true 2D blur)
+              }
+            }
+            blurred /= 25.0;
+            c = blurred;
+            c = mix(c, uPaperTone, smoothstep(0.03, 0.18, beyond));
+          }
+          // the dark ink edge: pigment pooled where the wash stops, darkening a little inside it
+          vec3 ink = vec3(0.04, 0.045, 0.055);
+          float rim = exp(-pow(inside / 0.035, 2.0));
+          float pool = smoothstep(0.22, 0.0, inside) * step(0.0, inside);
+          c = mix(c, ink, clamp(rim * 0.9 + pool * 0.22, 0.0, 0.92));
+          c = mix(c, ink, flung * 0.9);
+          gl_FragColor = vec4(c, max(a, flung));
           #include <colorspace_fragment>
         }
       `,
@@ -139,7 +187,7 @@ export function createGreeting(renderer) {
     camera.updateProjectionMatrix();
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     worldTarget.setSize(size.x, size.y);
-    painting.scale.set(PAINT_H * camera.aspect, 1, PAINT_H);
+    painting.scale.set(PAINT_H * camera.aspect * SPLAT_SCALE, 1, PAINT_H * SPLAT_SCALE);
     painting.material.uniforms.uAspect.value = camera.aspect;
   }
 
@@ -180,6 +228,8 @@ export function createGreeting(renderer) {
         falling.landed = true;
         drop.visible = false;
         painting.position.set(dropPos.x, PAPER_Y + 0.006, dropPos.z);
+        const sp = scroll.group.position; // (the paper inside its silk mounting: see makeScroll)
+        painting.material.uniforms.uBounds.value.set(sp.x - SCROLL.width * 0.425, sp.z - SCROLL.depth * 0.465, sp.x + SCROLL.width * 0.425, sp.z + SCROLL.depth * 0.465);
         painting.visible = true;
         above.position.set(dropPos.x, PAPER_Y + PAINT_H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))), dropPos.z);
         above.up.set(0, 0, -1);
@@ -190,9 +240,9 @@ export function createGreeting(renderer) {
         const age = t - FALL_TIME;
         scroll.splash(dropPos.x - scroll.group.position.x, dropPos.z - scroll.group.position.z, age);
         const s = Math.min(age / SPREAD_TIME, 1);
-        const max = Math.hypot(camera.aspect, 1) / 2 + 0.25; // (out past the corners, ragged edge and all)
-        painting.material.uniforms.uMax.value = max;
-        painting.material.uniforms.uSpread.value = (1 - Math.pow(1 - s, 2.2)) * max;
+        // (past the screen's corners, ragged edge and all, well before you settle; and on out)
+        const cover = Math.hypot(camera.aspect, 1) / 2 + 0.3;
+        painting.material.uniforms.uSpread.value = (1 - Math.pow(1 - s, 2.2)) * cover * 1.5;
         if (age > SPREAD_TIME && falling.resolve) {
           falling.resolve();
           falling.resolve = null;
