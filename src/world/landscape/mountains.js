@@ -91,6 +91,7 @@ export function build({ scene, P, rng }) {
       geos.push(peakGeometry(rand, x + Math.cos(a) * d, z + Math.sin(a) * d, r * rand.range(0.5, 0.8), h * rand.range(0.4, 0.75)));
     }
   }
+  for (const g of geos) P.keepOnLand(g); // (a shoulder can reach further than its peak)
   const mesh = new THREE.Mesh(mergeGeometries(geos), mountainMaterial());
   mesh.frustumCulled = false;
   scene.add(mesh);

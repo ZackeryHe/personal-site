@@ -62,7 +62,7 @@ src/
   world/
     index.js         builds the world from a list of modules (add new ones here)
     places.js        where everything is: stops, markers for your points, scenery
-    path.js          the walk's curve + helpers (at(t, side), heightAt, the cliff, reserve/blocked)
+    path.js          the walk's curve + helpers (at(t, side), heightAt, the cliff, keepOnLand, reserve/blocked)
     landscape/       terrain (ground ending at the cliff, stones, grass, the stream), mountains,
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)

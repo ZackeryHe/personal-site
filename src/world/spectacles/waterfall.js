@@ -7,7 +7,7 @@ import { createMist } from "../effects/mist.js";
 // 飞瀑 — the waterfall: it pours down a ravine in its mountain into a pool at your feet
 // as you come out of the bamboo. The pool's stream runs under the bridge; cranes wade in
 // its shallows and the fisherman drifts on it (garden/creatures.js).
-export function build({ scene, places, rng }) {
+export function build({ scene, P, places, rng }) {
   const rand = rng(85);
   const W = places.waterfall;
   const pool = places.pool;
@@ -15,7 +15,8 @@ export function build({ scene, places, rng }) {
 
   // the mountain, with a ravine cut into the face toward the walk for the falls to pour down
   const gully = { angle: Math.atan2(dir.x, dir.z), depth: 0.5, width: 0.24 };
-  const peak = peakGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, 0, gully);
+  // (its back reaches round toward the end of the walk: kept on land, short of the cliff edge)
+  const peak = P.keepOnLand(peakGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, 0, gully), 2);
   scene.add(new THREE.Mesh(peak, mountainMaterial({ cloud: new THREE.Vector4(W.h * 0.75, 3, 0.7, 0.8) })));
   // scrub on its slopes, but none down the ravine the water falls through
   const off = (p) => Math.abs(Math.atan2(Math.sin(Math.atan2(p.x - W.pos.x, p.z - W.pos.z) - gully.angle),

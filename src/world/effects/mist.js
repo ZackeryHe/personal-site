@@ -15,6 +15,7 @@ const vertexShader = /* glsl */ `
   varying float vAlpha;
   varying float vSeed;
   varying float vSunward;
+  varying float vY;
   void main() {
     float age = mod(uTime + aParams.z, uLife) / uLife; // 0 → 1 over a puff's life
     float s = aParams.y * 6.2831;
@@ -31,6 +32,7 @@ const vertexShader = /* glsl */ `
     vUv = uv;
     vSeed = aParams.y;
     vSunward = pow(max(dot(normalize(c - cameraPosition), normalize(uSun - cameraPosition)), 0.0), 24.0);
+    vY = p.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
   }
 `;
@@ -38,17 +40,19 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   uniform vec3 uPaper, uShade, uSunGlow;
   uniform float uOpacity, uTime, uShadeAmount, uGlow;
+  uniform vec2 uFloor; // height, softness: the puff thins out as it nears this (e.g. the sea of cloud)
   varying vec2 vUv;
   varying float vAlpha;
   varying float vSeed;
   varying float vSunward;
+  varying float vY;
   ${noise2}
   void main() {
     vec2 p = vUv * 2.0 - 1.0;
     float n = fbm2(p * 1.7 + vec2(vSeed * 17.0, uTime * 0.04 + vSeed * 3.0));
     float r = length(p) + (n - 0.5) * 0.7; // a ragged, billowing edge
     float body = 1.0 - smoothstep(0.2, 1.0, r);
-    float a = body * vAlpha * uOpacity;
+    float a = body * vAlpha * uOpacity * smoothstep(uFloor.x, uFloor.x + uFloor.y, vY);
     if (a < 0.01) discard;
     float under = 1.0 - smoothstep(-0.7, 0.2, p.y + (n - 0.5) * 0.5); // grey wash beneath
     vec3 lit = mix(uPaper, uSunGlow, vSunward * uGlow); // lit warm by the setting sun behind it
@@ -66,6 +70,7 @@ export function createMist(scene, rand, {
   count, spots, size = [2, 4], life = 6, rise = 0.4, grow = 0.8, drift = 1,
   opacity = 0.6, shade = "#6c7a86", shadeAmount = 0.35,
   glow = 0.55, // how warm the puffs toward the setting sun turn
+  floor = null, // [height, softness]: thin out toward a surface they'd otherwise be sliced off by
 }) {
   const base = new THREE.PlaneGeometry(2, 2);
   const g = new THREE.InstancedBufferGeometry();
@@ -100,6 +105,7 @@ export function createMist(scene, rand, {
       uSun: globals.uSun,
       uSunGlow: globals.uSunGlow,
       uGlow: { value: glow },
+      uFloor: { value: new THREE.Vector2(...(floor ?? [-1e4, 1])) },
       uShade: { value: new THREE.Color(shade) },
       uShadeAmount: { value: shadeAmount },
       uLife: { value: life },

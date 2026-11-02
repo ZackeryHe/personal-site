@@ -280,6 +280,7 @@ export function build({ scene, P, places }) {
   ];
   const ARCH = [6, 7]; // the arch's two towers in TOWERS
   const towerAxis = [];
+  const towerRadius = [];
   TOWERS.forEach(([side, ahead, r, top, taper], i) => {
     const p = at(side, ahead);
     const set = ahead < NEAR ? near : far;
@@ -288,6 +289,7 @@ export function build({ scene, P, places }) {
     });
     set.towers.push(g);
     towerAxis.push(p);
+    towerRadius.push(r);
     const treeSize = Math.min(11, 4 + ahead * 0.015);
     clothe(set, g, { trees: someTrees(0.55), r: r * taper, size: treeSize });
     // most have lesser columns fused to them, each its own height: stepped, irregular skylines
@@ -337,7 +339,7 @@ export function build({ scene, P, places }) {
   // (glow: their misty, paper-pale parts take on the sun's warm haze, like the sky behind them)
   // (mist: the height above which they're fully clear of it)
   const stone = (cloud, mist) => ({
-    climb: 0, grain: 0.3, near: 30, far: 520, minFar: 0.16, mistBase: sea - 2, mist, wash: 1, glow: 0.95, cloud,
+    climb: 0, grain: 0.3, near: 30, far: 520, minFar: 0.16, mistBase: sea - 2, mist, mistFloor: 0, wash: 1, glow: 0.95, cloud,
   });
   const wallCloud = new THREE.Vector4(sea - 2, 4, 0.5, 0.6); // mist pooled around the walls' feet
   const towerCloud = new THREE.Vector4(12, 7, 0.7, 0.5);     // a belt of cloud through the towers' middles
@@ -355,7 +357,7 @@ export function build({ scene, P, places }) {
   add(far.towers, mountainMaterial({ ...stone(new THREE.Vector4(24, 10, 0.7, 0.4), -4), reveal: "global" }));
   add([arch], mountainMaterial({ ...stone(new THREE.Vector4(0, 1, 0, 0), -4), density: 1.15 }));
   // trees and bushes, fading into the cloud like the rock they grow on
-  const growth = { near: 30, far: 520, minFar: 0.2, mistBase: sea - 2, mist: -5, glow: 0.6 };
+  const growth = { near: 30, far: 520, minFar: 0.2, mistBase: sea - 2, mist: -5, mistFloor: 0, glow: 0.6 };
   const trunkInk = (opts) => inkMaterial({
     channel: "far", climb: 0, noiseScale: 0.1, noiseAmp: 0.25, grain: 0.8, sil: 0.5, density: 1.1, shade: 0.5,
     tint: "wood", ...growth, ...opts,
@@ -379,7 +381,7 @@ export function build({ scene, P, places }) {
     fallGeometry(lip, toBench, FALL.top - 1, sea - 2, 1.6, 6.5),
     inkMaterial({
       variant: "waterfall", tint: "water", channel: "far", climb: 0, noiseScale: 0.05, noiseAmp: 0.2,
-      near: 40, far: 520, minFar: 0.35, density: 0.85, mistBase: sea - 2, mist: -6, grain: 0.3, sil: 0, rim: 0.3,
+      near: 40, far: 520, minFar: 0.35, density: 0.85, mistBase: sea - 2, mist: -6, mistFloor: 0, grain: 0.3, sil: 0, rim: 0.3,
       side: THREE.DoubleSide,
     })
   ));
@@ -389,7 +391,7 @@ export function build({ scene, P, places }) {
   // your eye, so you look down onto it), thin veils drifting through the far towers, spray
   // where the falls vanish ----------
   createMist(scene, rand, {
-    count: 64, size: [20, 48], life: 34, rise: 0.04, grow: 0.5, drift: 6, opacity: 0.55, shadeAmount: 0.32, glow: 0.8,
+    count: 64, size: [20, 48], life: 34, rise: 0.04, grow: 0.5, drift: 6, opacity: 0.55, shadeAmount: 0.32, glow: 0.8, floor: [sea, 6],
     spots: (i, r) => {
       const ahead = r.range(15, 500);
       const p = at(r.range(-1, 1) * (26 + ahead * 0.4), ahead);
@@ -397,15 +399,17 @@ export function build({ scene, P, places }) {
     },
   });
   createMist(scene, rand, {
-    count: towerAxis.length * 3, size: [14, 28], life: 26, rise: 0.06, grow: 0.6, drift: 4, opacity: 0.55, shadeAmount: 0.3, glow: 0.8,
+    count: towerAxis.length * 3, size: [14, 28], life: 26, rise: 0.06, grow: 0.6, drift: 4, opacity: 0.55, shadeAmount: 0.3, glow: 0.8, floor: [sea, 6],
     spots: (i, r) => {
-      const p = towerAxis[Math.floor(i / 3)];
+      const k = Math.floor(i / 3);
+      const p = towerAxis[k];
       const a = r() * Math.PI * 2;
-      return [p.x + Math.cos(a) * 9, r.range(sea - 1, sea + 8), p.z + Math.sin(a) * 9];
+      const d = towerRadius[k] * 1.3 + 4; // just outside its foot, not cutting through it
+      return [p.x + Math.cos(a) * d, r.range(sea, sea + 8), p.z + Math.sin(a) * d];
     },
   });
   createMist(scene, rand, {
-    count: 10, size: [30, 56], life: 48, rise: 0.02, grow: 0.4, drift: 10, opacity: 0.2, shadeAmount: 0.15, glow: 0.9,
+    count: 10, size: [30, 56], life: 48, rise: 0.02, grow: 0.4, drift: 10, opacity: 0.2, shadeAmount: 0.15, glow: 0.9, floor: [sea, 6],
     spots: (i, r) => {
       const ahead = r.range(200, 450);
       const p = at((r() < 0.5 ? -1 : 1) * r.range(45, 40 + ahead * 0.35), ahead); // off to the sides, clear of the sun
@@ -413,7 +417,7 @@ export function build({ scene, P, places }) {
     },
   });
   createMist(scene, rand, {
-    count: falls.length * 6, size: [6, 13], life: 7, rise: 0.6, grow: 1.1, drift: 1.6, opacity: 0.7, shadeAmount: 0.3,
+    count: falls.length * 6, size: [6, 13], life: 7, rise: 0.6, grow: 1.1, drift: 1.6, opacity: 0.7, shadeAmount: 0.3, floor: [sea, 4],
     spots: (i, r) => {
       const f = falls[i % falls.length];
       return [f.x + r.range(-3, 3), f.y + r.range(-2, 3), f.z + r.range(-3, 3)];

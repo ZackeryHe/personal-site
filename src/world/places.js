@@ -72,7 +72,7 @@ export function planPlaces(P) {
     boat: { pos: V() },                       // drifts; moved by garden/creatures.js
 
     // ---------- spectacles ----------
-    pagoda: { pos: V(10, 0, -106), r: 8, h: 9, tiers: 5 }, // on a knoll near the rim: ahead as you cross the bridge
+    pagoda: { pos: V(6, 0, -103), r: 8, h: 9, tiers: 5 }, // on a knoll near the rim (well short of the edge): ahead as you cross the bridge
     // the end: a lone pine on the brink, the sun and the geese out over the canyon
     pine: { pos: ahead(3.0, -8), faces: ahead(40, -16) },
     geese: { pos: V(), center: ahead(240, 0).setY(38), radii: [150, 45], period: 80 },

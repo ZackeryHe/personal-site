@@ -61,6 +61,26 @@ export function makePath() {
   const cliffDist = (x, z) => (x - brink.x) * endDir.x + (z - brink.z) * endDir.z;
   /** Is x, z off the edge of the cliff (or within `margin` metres of it)? */
   const overCliff = (x, z, margin = 0) => cliffDist(x, z) > -margin;
+  /**
+   * Pull any part of a (world-space) geometry that reaches out past the cliff back onto land,
+   * so a hill never hangs out over the canyon: whatever lies within `soft` metres of the line
+   * `margin` metres short of the edge is squeezed up against it, curving into a steep face
+   * rather than being sliced flat.
+   */
+  const keepOnLand = (geometry, margin = 1.5, soft = 3) => {
+    const pos = geometry.attributes.position;
+    const limit = -margin;
+    let moved = false;
+    for (let i = 0; i < pos.count; i++) {
+      const d = cliffDist(pos.getX(i), pos.getZ(i));
+      if (d <= limit - soft) continue;
+      const to = limit - soft * Math.exp(-(d - (limit - soft)) / soft); // eases up to the limit, never past it
+      pos.setXYZ(i, pos.getX(i) + endDir.x * (to - d), pos.getY(i), pos.getZ(i) + endDir.z * (to - d));
+      moved = true;
+    }
+    if (moved) geometry.computeVertexNormals();
+    return geometry;
+  };
   /** The z where the land ends for a given x, with a broken, rocky line (±1 m). */
   const edgeZ = (x) =>
     brink.z - (endDir.x / endDir.z) * (x - brink.x) + Math.sin(x * 0.31) * 1.0 + Math.sin(x * 0.83 + 1.7) * 0.5;
@@ -89,6 +109,6 @@ export function makePath() {
 
   return {
     path, pathLen, distToPath, nearestT, sideAt, yawAt, heightAt, at,
-    end, endDir, cliffDist, overCliff, edgeZ, reserve, blocked,
+    end, endDir, cliffDist, overCliff, keepOnLand, edgeZ, reserve, blocked,
   };
 }

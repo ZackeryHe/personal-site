@@ -5,10 +5,11 @@ import { roofGeometry } from "../structures/structures.js";
 import { farInk } from "./common.js";
 
 // 远塔 — a pagoda on a knoll at the canyon's rim, beside the pavilion.
-export function build({ scene, places, rng }) {
+export function build({ scene, P: path, places, rng }) {
   const rand = rng(83);
   const P = places.pagoda;
-  scene.add(new THREE.Mesh(peakGeometry(rand, P.pos.x, P.pos.z, P.r, P.h, 0), mountainMaterial()));
+  // its knoll stays on land, short of the cliff edge
+  scene.add(new THREE.Mesh(path.keepOnLand(peakGeometry(rand, P.pos.x, P.pos.z, P.r, P.h, 0), 2), mountainMaterial()));
 
   const parts = [];
   let y = P.h - 2 - 0.5; // just below the summit

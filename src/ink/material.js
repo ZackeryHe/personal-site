@@ -94,7 +94,7 @@ const fragmentShader = /* glsl */ `
   uniform vec4 uChannel;
   uniform float uBias, uClimb, uNoiseScale, uNoiseAmp, uEdge, uRimW, uRim;
   uniform float uNear, uFar, uMinFar, uDensity, uMist, uMistBase, uGrain, uSil, uWash, uDots;
-  uniform float uShade, uNeedles, uRagged;
+  uniform float uShade, uNeedles, uRagged, uMistFloor;
   uniform float uSketchR, uSketch;
   uniform float uHoles;
   uniform sampler2D tColour;
@@ -182,7 +182,7 @@ const fragmentShader = /* glsl */ `
       // (soft-edged patches: crisp ones get outlined by the watercolour pass and read as holes)
       cloud *= smoothstep(0.15, 0.75, fbm3lo(vec3(vWorld.x * 0.03 + drift * 0.03, vWorld.y * 0.08, vWorld.z * 0.03)));
     }
-    float air = mix(0.12, 1.0, mist) * (1.0 - cloud);
+    float air = mix(uMistFloor, 1.0, mist) * (1.0 - cloud);
 
     float ink = (tex * shade + sil * uSil) * wet + rim * uRim;
 
@@ -304,7 +304,7 @@ const fragmentShader = /* glsl */ `
     if (uTint > 0.0) {
       vec4 cf = texture2D(tColour, (vWorld.xz - uFieldRect.xy) / uFieldRect.zw);
       float cm = dot(cf, uColourChannel) + (blot - 0.5) * 0.4 + (fingers - 0.5) * 0.15;
-      float tint = smoothstep(0.0, 0.3, cm) * uTint;
+      float tint = smoothstep(0.0, 0.3, cm) * uTint * smoothstep(0.0, 0.6, air); // (colour fades in mist, like ink)
       base = mix(base, uTintWash, tint * 0.7 * mix(1.0, 0.55, atm));
       inkCol = mix(inkCol, uTintInk, tint * 0.9);
     }
@@ -339,6 +339,7 @@ export function inkMaterial({
   variant = null,             // null | "ground" | "river" | "backdrop"
   bias = 0, climb = 0.03, noiseScale = 0.3, noiseAmp = 0.3, edge = 0.03, rimWidth = 0.08, rim = 0.6,
   near = 8, far = 60, minFar = 0.3, density = 1, mist = 2, mistBase = -0.5, grain = 1, sil = 0.6, wash = 0, dots = 0,
+  mistFloor = 0.12,           // how much ink is left where the mist is thickest (0: it fades right out)
   shade = 0.4, needles = 0, ragged = 0, sway = 0,
   cloud = new THREE.Vector4(0, 1, 0, 0), flow = new THREE.Vector4(1, 0, 0, 0),
   sketch = true,              // line-drawn (白描) before the ink arrives; ignored for global/ground
@@ -386,6 +387,7 @@ export function inkMaterial({
       uShade: { value: shade },
       uNeedles: { value: needles },
       uRagged: { value: ragged },
+      uMistFloor: { value: mistFloor },
       uSketch: { value: sketch && reveal !== "global" && variant !== "ground" && variant !== "decal" ? 1 : 0 },
       uWiggle: { value: wiggle },
       uHoles: { value: holes },
