@@ -97,7 +97,8 @@ src/
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
                      ranges, the red sun and its glow, birds)
     structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),
-                     the bridge, the pavilion by the waterfall's pool (Resume), the well in the
+                     the bridge (Resume: over a crane wading on its left), the pavilion by the
+                     waterfall's pool, the well in the
                      meadows (well.js: Source code), the stone steps up the rim, the bench
     garden/          koi pond, plants (bamboo, plum, flowers), creatures (cranes, deer,
                      butterflies, the boat), critters (birds + rabbits that react to you),

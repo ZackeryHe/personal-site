@@ -60,8 +60,9 @@ stopped to look.
    pool, mist billowing up where they land; cranes wade in
    the shallows, a fisherman drifts on the pool, deer graze by its stream, which runs under a
    stone arch bridge.
-6. **Resume**: across the bridge, the pavilion on the pool's shore, the pagoda on its knoll
-   behind; its hanging scrolls are the pages of your resume, the falls beside it.
+6. **Resume**: at the bridge, floating over a crane wading in the pool's shallows on its left.
+   Across the bridge, the pavilion on the pool's shore, the pagoda on its knoll behind; its
+   hanging scrolls could be the pages of your resume, the falls beside it.
 7. **Source code (源码)**: across the meadows, a well under its own little roof, a windlass and
    bucket over it: 源, the source (a spring's, and this site's: Source code ↗). Then to the foot
    of a rock escarpment, and up a sky ladder (天梯) of stone steps cut straight up its face,

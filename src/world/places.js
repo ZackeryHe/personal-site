@@ -10,10 +10,10 @@ import { GARDEN_LEN } from "./path.js";
 // put however long the rest of the walk is.
 //
 // The walk: the entrance → koi pond (Contacts) → avenue of tablets (Experience) → bamboo with
-// lanterns (Projects) → out of the bamboo facing the waterfall → over the bridge and through the
-// pavilion on the waterfall pool's shore (Resume) → east across the meadows and up the rim to the
-// lookout: the canyon and the red sun ahead, and behind you, when you sit and turn round, the
-// whole walk laid out below.
+// lanterns (Projects) → out of the bamboo facing the waterfall → the bridge, a crane wading on its
+// left (Resume) → through the pavilion on the waterfall pool's shore → east across the meadows
+// (the well: Source code) and up the rim to the lookout: the canyon and the red sun ahead, and
+// behind you, when you sit and turn round, the whole walk laid out below.
 
 // Stops along the walk, in the garden's units (path.js turns them into t: STOPS).
 // Your points (text in src/content.js): their panel writes itself in at these stops.
@@ -23,7 +23,7 @@ export const STOP_AT = {
   contacts: 0.085,  // just before the carved rocks on the lotus pond's near shore (you turn toward them)
   experience: 0.27, // the avenue of stone tablets (碑林)
   projects: 0.47,   // lanterns in the bamboo
-  resume: 0.85,     // the pavilion on the waterfall pool's shore, its hanging scrolls (across the bridge)
+  resume: 0.69,     // out of the bamboo, nearing the bridge: the crane wading on its left, its marker over it
   source: 1.03,     // the well (源, "the source") in the meadows, on the way to the climb
   // scenery
   grove: 0.27,      // pines around the tablets
@@ -36,14 +36,15 @@ export const STOPS = {};
 // Markers: your points, floating beside the thing that stands for them.
 //   of:     the place (below) it belongs to     height: metres above that place
 //   radius: it shows within this many metres
-//   nudge:  how much it turns your head toward it as you approach (0 – 0.4)
+//   nudge:  how much it turns your head toward it as you approach: the share of the way round
+//           to it that you turn (0 – 0.6; nearer the path, it takes more to turn you as far)
 // (GitHub, LinkedIn and Email are carved into rocks by the pond instead; see links below.)
 export const MARKERS = [
   { id: "contacts", of: "contacts", height: 1.5, radius: 16, nudge: 0.4 },
   { id: "experience", of: "experience", height: 3.4, radius: 30, nudge: 0.25 },
-  { id: "projects", of: "projects", height: 3.0, radius: 30, nudge: 0.3 },
-  { id: "resume", of: "resume", height: 7.8, radius: 34, nudge: 0.25 },
-  { id: "source", of: "source", height: 4.6, radius: 28, nudge: 0.3 },
+  { id: "projects", of: "projects", height: 3.4, radius: 30, nudge: 0.3 },
+  { id: "resume", of: "cranes", height: 3.4, radius: 34, nudge: 0.25 },   // over the crane by the bridge
+  { id: "source", of: "wellFront", height: 1.6, radius: 28, nudge: 0.5 },
 ];
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -98,17 +99,19 @@ export function planPlaces(P) {
   };
   places.bench.pos.y = P.groundAt(places.bench.pos.x, places.bench.pos.z);
 
-  // the well (Source code): beside the path through the meadows, on the side away from the rim
+  // the well (Source code): beside the path through the meadows, on the side away from the rim;
+  // its marker stands in front of it, between it and the path
   {
     const t = STOPS.source;
     const [a, b] = [P.at(t, 5.5), P.at(t, -5.5)];
     const pos = P.cliffDist(a.x, a.z) < P.cliffDist(b.x, b.z) ? a : b;
     places.source = { pos, faces: P.path.getPointAt(t) };
+    places.wellFront = { pos: P.at(t, pos === a ? 2.8 : -2.8) };
   }
   places.contacts = { pos: places.links[1].pos.clone() };        // marker: over the middle rock
   places.experience = { pos: P.at(STOPS.experience, 0) };       // marker: over the avenue
-  places.projects = { pos: places.lanterns[2].pos.clone() };    // marker: over the middle lantern
-  places.resume = { pos: P.path.getPointAt(STOPS.pavilion) };   // marker: over the pavilion
+  places.projects = { pos: P.at(STOPS.projects, 0) };           // marker: over the path, in the middle of the bamboo
+  // (Resume's marker: over the crane wading on the left of the bridge, placed by garden/creatures.js)
   places.bamboo.pos = P.at((places.bamboo.range[0] + places.bamboo.range[1]) / 2, -2.5);
 
   // ---------- the waterfall pool: falls, pool, cranes, boat, and the stream under the bridge ----------
