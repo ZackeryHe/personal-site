@@ -6,7 +6,7 @@ import { globals } from "../ink/material.js";
 // head. As you approach one of your points, your head is nudged gently toward it.
 // Stop, and you can crane right round.
 export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
-  const { path, pathLen, heightAt, markers, bench, painting, groundAt } = world;
+  const { path, pathLen, heightAt, markers, bench, painting, groundAt, endDir } = world;
   const W = CONFIG.walk;
   const { lerp, smoothstep, clamp } = THREE.MathUtils;
   const clamp01 = (x) => clamp(x, 0, 1);
@@ -20,6 +20,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let nudge = 0;     // radians your head is turned toward a nearby point
   let seated = 0;    // 0 standing → 1 sitting on the bench at the end
   let anchor = null; // where the mouse was as you sat down: seated, you look around from there
+  let framing = 0;   // 0 → 1: the painter's framing (a longer lens, a clearer distance), eased
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
   const walk = (metres) => (target = clamp01(target + metres / pathLen));
 
@@ -53,6 +54,16 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   const fwd = new THREE.Vector3();
   /** Signed angle about +Y that turns direction a onto direction b (both horizontal). */
   const angleTo = (a, b) => Math.atan2(a.z * b.x - a.x * b.z, a.x * b.x + a.z * b.z);
+  // seated, how far you can turn each way from the painting: right round to the canyon, the short
+  // way on one side and the long way round on the other (turning right is a negative angle)
+  const toCanyon = painting && endDir ? angleTo(painting.facing, endDir) : Math.PI;
+  const turnLeft = toCanyon > 0 ? toCanyon : 2 * Math.PI + toCanyon;
+  const turnRight = toCanyon < 0 ? -toCanyon : 2 * Math.PI - toCanyon;
+
+  /** 0–1: how squarely the mouse is where it was when you sat (looking at the painting). */
+  const squarely = () => (anchor
+    ? 1 - smoothstep(Math.abs(mouse.sx - anchor.x) + Math.abs(mouse.sy - anchor.y) * 0.5, 0.12, 0.35)
+    : 0);
 
   /**
    * How far to turn toward the nearest point you're approaching: grows as you get
@@ -88,7 +99,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
     /** 0–1: how squarely you're looking at the painting (seated, and not looking away) */
     get facingPainting() {
       if (!anchor || seated < 0.98) return 0;
-      return 1 - smoothstep(Math.abs(mouse.sx - anchor.x) + Math.abs(mouse.sy - anchor.y) * 0.5, 0.12, 0.35);
+      return squarely();
     },
     point,   // where you are on the path (updated every frame)
     tangent, // which way the path runs
@@ -150,7 +161,10 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       const wantSit = bench && target > 0.999 && progress > 0.985 ? 1 : 0;
       if (wantSit && !anchor) anchor = { x: mouse.sx, y: mouse.sy };
       seated += (wantSit - seated) * Math.min(1, dt * (wantSit ? W.sitEase : 3));
-      if (!wantSit && seated < 0.02) anchor = null;
+      if (!wantSit && seated < 0.001) {
+        seated = 0; // fully up again: only now let go of where you were looking as you sat
+        anchor = null;
+      }
       const sit = seated * seated * (3 - 2 * seated);
       nudge += (nudgeTarget() * (1 - sit) - nudge) * Math.min(1, dt * W.nudgeEase);
       // walking: the path ahead, your head turned by the mouse (and nudged toward your points)
@@ -158,10 +172,15 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       let lookY = -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp;
       if (sit > 0) {
         // seated, you turn round to the painting, the same view wherever you were looking; from
-        // there the mouse looks around (right round to the canyon at the edges of the screen)
-        const around = -shaped(clamp(mouse.sx - anchor.x, -1, 1)) * Math.PI;
+        // there the mouse looks around. Either edge of the screen turns you right round to face
+        // the canyon (however far the mouse was from that edge as you sat down).
+        const ax = anchor?.x ?? 0;
+        const ay = anchor?.y ?? 0;
+        const dx = mouse.sx - ax;
+        const u = dx > 0 ? Math.min(1, dx / Math.max(1 - ax, 0.2)) : Math.max(-1, dx / Math.max(1 + ax, 0.2));
+        const around = u > 0 ? -shaped(u) * turnRight : shaped(-u) * turnLeft;
         yaw = lerp(yaw, angleTo(tangent, painting.facing) + around, sit);
-        lookY = lerp(lookY, 10 * Math.tan(painting.pitch) - (mouse.sy - anchor.y) * W.lookPitchStill, sit);
+        lookY = lerp(lookY, 10 * Math.tan(painting.pitch) - (mouse.sy - ay) * W.lookPitchStill, sit);
       }
       dir.copy(tangent).applyAxisAngle(up, yaw);
       const bob = Math.sin(progress * pathLen * 1.2) * W.bob * (1 - sit); // gentle footsteps
@@ -179,14 +198,18 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       camera.lookAt(look);
       camera.rotateZ(-crane * W.craneRoll * (1 - sit)); // a slight head tilt
       // turned to the painting, it's seen as a painter frames it: a longer lens, layers drawn
-      // closer together, the distance less faded
-      const framed = sit * (anchor ? this.facingPainting * 0.6 + 0.4 : 0);
-      const fov = lerp(CONFIG.render.fov, painting.fov, framed);
-      if (Math.abs(camera.fov - fov) > 0.01) {
-        camera.fov = fov;
-        camera.updateProjectionMatrix();
+      // closer together, the distance less faded. It settles in slowly as you sit and look, and
+      // eases off as you look away.
+      if (painting) {
+        framing += (sit * squarely() - framing) * Math.min(1, dt * W.frameEase);
+        const k = framing * framing * (3 - 2 * framing);
+        const fov = lerp(CONFIG.render.fov, painting.fov, k);
+        if (Math.abs(camera.fov - fov) > 0.01) {
+          camera.fov = fov;
+          camera.updateProjectionMatrix();
+        }
+        globals.uAtmScale.value = lerp(1, painting.clarity, k);
       }
-      globals.uAtmScale.value = lerp(1, painting.clarity, framed);
     },
   };
 }

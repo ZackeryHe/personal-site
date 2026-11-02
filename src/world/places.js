@@ -188,6 +188,12 @@ export function planPlaces(P) {
   r(P.at(0.97), 7);                // the end: nothing but the view
   r(P.at(0.93), 6);
   for (const { pos } of places.taihu) r(pos, 1.6);
+  // an open view to the right of the road where you start, and behind the right-hand wall of the
+  // avenue: trees keep back (the ones further off stay, as a backdrop)
+  for (let g = 0; g <= 0.36; g += 0.015) {
+    const avenue = g > 0.19 && g < 0.35;
+    r(P.at(T(g), avenue ? 13 : 9), avenue ? 9.5 : 7.5, { trees: true });
+  }
   for (let t = places.bamboo.range[0]; t <= places.bamboo.range[1] + 1e-6; t += T(0.015)) r(P.path.getPointAt(t), 9);
   r(P.path.getPointAt(STOPS.pavilion), 6); // the pavilion
   // a clear view down the avenue and the bamboo to the waterfall: no random mountain in the way

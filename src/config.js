@@ -27,6 +27,7 @@ export const CONFIG = {
     nudgeEase: 1.2,   // how gently your head turns toward a point as you approach (lower = gentler)
     sitHeight: 1.15,  // eye height on the bench at the end
     sitEase: 0.9,     // how slowly you sit down (lower = slower)
+    frameEase: 0.6,   // how slowly the view settles into the painting's framing once you're sitting
     // (sitting, you turn round to the painting's view: see places.painting in src/world/places.js)
   },
 
