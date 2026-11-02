@@ -310,11 +310,14 @@ export function createGreeting(renderer) {
 
   return {
     /** Start drawing it (every frame, until stop()). Resolves once it has been drawn. */
-    start() {
+    async start() {
       resize();
       addEventListener("resize", resize);
       camera.position.copy(EYE);
       camera.lookAt(look);
+      // its shaders first: where the browser compiles them in the background, the page (your
+      // name, already showing) stays free meanwhile, and the first frame doesn't wait on them
+      await renderer.compileAsync(scene, camera);
       running = true;
       return new Promise((resolve) => requestAnimationFrame((t) => {
         frame(t);
@@ -601,7 +604,7 @@ function makeScroll() {
 
   // the rollers it's wound on, at either end, with jade knobs
   const wood = new THREE.MeshPhysicalMaterial({ color: 0x2c2018, roughness: 0.45, clearcoat: 0.6 });
-  const jade = new THREE.MeshPhysicalMaterial({ color: 0xbfd0c4, roughness: 0.15, clearcoat: 1, transmission: 0.3, thickness: 0.2 });
+  const jade = new THREE.MeshPhysicalMaterial({ color: 0xbfd0c4, roughness: 0.15, clearcoat: 1 }); // (solid: no see-through, so no extra transmission pass)
   for (const s of [-1, 1]) {
     const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, D + 0.3, 32).rotateX(Math.PI / 2), wood);
     roller.position.set(s * (W / 2 + 0.1), 0.11, 0);

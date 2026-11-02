@@ -82,6 +82,8 @@ src/
     ui.js            panels + markers that bleed in like ink, progress dots, the hint; a panel
                      can be rewritten with a tablet's or a lantern's story (stories.js)
     reader.js        the resume, on a hanging scroll that unrolls (the Resume marker opens it)
+    warmup.js        behind the greeting: every shader compiled and drawn with once, everything
+                     uploaded, a little at a time, so a phone doesn't freeze before "tap to begin"
   ink/               the rendering "engine"
     field.js         top-down map of how far ink has spread (from the drops)
     material.js      every object's ink look: spreading edge, washes, sketch, variants

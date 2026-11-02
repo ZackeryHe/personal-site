@@ -13,6 +13,7 @@ import { createPointer } from "./app/pointer.js";
 import { createPicker } from "./app/picker.js";
 import { createKeepsake } from "./app/keepsake.js";
 import { createReader } from "./app/reader.js";
+import { warmUp } from "./app/warmup.js";
 import { createLoader } from "./app/loader.js";
 import { createGreeting } from "./app/greeting.js";
 
@@ -34,6 +35,7 @@ const loader = createLoader(); // the greeting's page layer: your name, the way 
 // ---------- Rendering ----------
 const canvas = document.getElementById("scene");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+renderer.debug.checkShaderErrors = import.meta.env.DEV; // (built: don't stop to read each shader's compile log)
 renderer.setPixelRatio(Math.min(devicePixelRatio, CONFIG.render.maxPixelRatio));
 renderer.setClearColor(PAPER);
 const scene = new THREE.Scene();
@@ -130,17 +132,18 @@ async function boot() {
     requestAnimationFrame(frame);
   }
 
-  // warm up behind the greeting: compile every shader (in the background), and paint a first
-  // (blank) frame offscreen, so everything is uploaded before the world is ever shown
+  // warm up behind the greeting, a little at a time: every shader compiled and drawn with once,
+  // everything uploaded, before the world is ever shown, and without freezing it (app/warmup.js)
   walker.update(0);
   globals.uCam.value.copy(camera.position);
-  await renderer.compileAsync?.(scene, camera);
-  greeting?.progress(0.92);
-  await loader.painted();
-  const warmUp = new THREE.WebGLRenderTarget(1, 1);
-  post.render(scene, camera, warmUp);
-  warmUp.dispose();
-  greeting?.progress(1);
+  await warmUp({
+    renderer, scene, camera, post,
+    also: () => { // the ink field's own pass (it first runs as the opening drop lands, mid-fall)
+      field.dirty = true;
+      field.update(globals.uTime.value);
+    },
+    onProgress: (k) => greeting?.progress(0.85 + 0.15 * k),
+  });
   if (skipGreeting) loader.dismiss();
   else {
     // ...until you begin: the drop falls into the scroll. As it lands, the world starts, at the
