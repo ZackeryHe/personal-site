@@ -78,7 +78,7 @@ export const CONFIG = {
     maxThrow: 30,          // ...but never more than this many metres
     flick: 0.6,            // strength of a clicked drop (1 = same as a footstep)
     // the top-down area the ink map covers (must contain everything that inks in)
-    fieldRect: [-200, -360, 480, 480], // x0, z0, width, depth
+    fieldRect: [-200, -360, 480, 520], // x0, z0, width, depth
     fieldResolution: 320,
   },
 

@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { inkMaterial } from "../../ink/material.js";
-import { STOPS } from "../places.js";
 
 // The ground (ending at the cliff), stepping stones, grass, the stream and its reeds.
 // (No rocks along the canyon's rim: at the end there's nothing but the view.)
@@ -182,10 +181,10 @@ export function build({ scene, P, places, rng }) {
     const d = pool.r + rand.range(0.6, 1.6);
     tuft(pool.pos.x + Math.cos(a) * d, pool.pos.z + Math.sin(a) * d, 4 + Math.floor(rand() * 4), rand.range(1.0, 1.8), 0.3);
   }
-  for (let i = 0; i < 46; i++) {
-    const along = rand.range(-6, 40);
+  for (let i = 0; i < 70; i++) {
+    const along = rand.range(-6, 70);
     if (Math.abs(along) < 2.6) continue; // keep the bridge clear
-    const p = R.at(along, (rand() < 0.5 ? -1 : 1) * rand.range(3.3, 4.4));
+    const p = R.at(along, (rand() < 0.5 ? -1 : 1) * (R.halfWidth(along) + rand.range(-0.1, 1)));
     tuft(p.x, p.z, 4 + Math.floor(rand() * 4), rand.range(1.1, 1.9), 0.3);
   }
 
@@ -219,19 +218,48 @@ export function build({ scene, P, places, rng }) {
   grass.frustumCulled = false;
   scene.add(grass);
 
-  // ---------- The stream: from the waterfall's pool, under the bridge, away to the right ----------
-  const from = R.start;
-  const to = 70; // it wanders off to the south-east across the meadows, before the land rises
-  const stream = new THREE.Mesh(
-    new THREE.PlaneGeometry(to - from, 7).rotateX(-Math.PI / 2),
-    inkMaterial({
-      variant: "river", tint: "water", channel: "mid", bias: 0.15, climb: 0, noiseScale: 0.1, noiseAmp: 0.35,
-      near: 3, far: 55, minFar: 0, density: 0.6, mist: 0.01, sil: 0,
-      color: new THREE.Color("#22303d"),
-      flow: new THREE.Vector4(R.flow.x, R.flow.z, R.pos.x, R.pos.z),
-    })
-  );
-  stream.position.copy(R.at((from + to) / 2, 0)).setY(0.02);
-  stream.rotation.y = P.yawAt(STOPS.river);
-  scene.add(stream);
+  // ---------- The stream: from the waterfall's pool, under the bridge, winding away across the
+  // meadows (places.js): a ribbon along its course, uv x across it (-1 → 1, bank to bank), uv y
+  // metres along it from the pool. It's inked with the far things, so from the lookout you see
+  // all of it: a pale wash of water between dark banks, fading away into the mist at its end ----------
+  {
+    const STEP = 1.2;
+    const ACROSS = 8;
+    const n = Math.ceil(R.len / STEP);
+    const positions = [];
+    const uvs = [];
+    const index = [];
+    for (let i = 0; i <= n; i++) {
+      const s = Math.min(R.len, i * STEP);
+      const along = s + R.start;
+      const hw = R.halfWidth(along);
+      for (let j = 0; j <= ACROSS; j++) {
+        const u = (j / ACROSS) * 2 - 1;
+        const p = R.at(along, u * hw);
+        positions.push(p.x, P.groundAt(p.x, p.z) + 0.02, p.z);
+        uvs.push(u, s);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < ACROSS; j++) {
+        const a = i * (ACROSS + 1) + j;
+        const b = a + ACROSS + 1;
+        index.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(index);
+    g.computeVertexNormals();
+    const stream = new THREE.Mesh(g, inkMaterial({
+      variant: "river", tint: "water", channel: "far", bias: 0.02, climb: 0, noiseScale: 0.1, noiseAmp: 0.35,
+      near: 30, far: 300, minFar: 0.5, density: 0.8, mist: 0.9, mistBase: -0.6, mistFloor: 0.3, sil: 0,
+      wash: 0.8, washLit: new THREE.Color("#b3c4c6"), washShade: new THREE.Color("#b3c4c6"),
+      color: new THREE.Color("#22303d"), side: THREE.DoubleSide,
+      flow: new THREE.Vector4(R.len, 70, 0, 0), // (its length, and how far from its end it fades away)
+    }));
+    stream.frustumCulled = false;
+    scene.add(stream);
+  }
 }

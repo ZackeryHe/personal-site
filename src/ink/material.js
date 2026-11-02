@@ -94,8 +94,15 @@ const vertexShader = /* glsl */ `
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vUv;
+  #ifdef LAYERS
+    attribute float crest;
+    varying float vCrest;
+  #endif
   void main() {
     vec4 local = vec4(position, 1.0);
+    #ifdef LAYERS
+      vCrest = crest;
+    #endif
     vec3 n = normal;
     if (uWiggle > 0.0) { // swimming: a wave runs down the body (head at +z), strongest at the tail
       float ph = 0.0;
@@ -142,18 +149,21 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uTintWash, uTintInk;
   uniform float uTint;
   uniform vec3 uSun, uSunGlow;
-  uniform float uGlow, uSoftObj, uCun, uRimFade;
+  uniform float uGlow, uSoftObj, uCun, uCunFreq, uRimFade;
   uniform float uAtmScale;
   ${landGLSL}
   #ifdef DECAL
     uniform sampler2D uMap;
   #endif
   uniform vec4 uCloud; // belt height, half-thickness, strength, drift speed
-  uniform vec4 uFlow;  // river: flow direction xz, centre xz
+  uniform vec4 uFlow;  // river: its length, how far from its end it fades; pond: radius, -, centre xz
 
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vUv;
+  #ifdef LAYERS
+    varying float vCrest;
+  #endif
 
   ${noise3}
 
@@ -233,6 +243,20 @@ const fragmentShader = /* glsl */ `
 
     float ink = (tex * shade + sil * uSil) * wet + rim * uRim;
 
+    // a mountain in layers (massifGeometry's ridges, one behind another): each ridge inked
+    // darkest along its crest and thinning to a pale wash toward its foot, so the crest of the
+    // ridge in front stands out against the pale lower slopes of the one behind it (三远)
+    float layerK = 1.0;
+  #ifdef LAYERS
+    {
+      float cr = clamp(vCrest + (blot - 0.5) * 0.14, 0.0, 1.0);
+      layerK = smoothstep(0.02, 0.92, cr);
+      ink *= mix(0.16, 1.2, layerK);
+      // and a firmer line along each crest, where its slope turns away out of sight
+      ink += sil * smoothstep(0.55, 0.9, cr) * 0.35 * wet;
+    }
+  #endif
+
     // 皴 texture strokes, painted on a mountain (vUv: x round it, y from its summit out to its
     // foot): long hemp-fibre strokes (披麻皴) running down the slopes, wavering, breaking off here
     // and there, heavier on the steep flanks and the side away from the light; and faint ledges
@@ -247,8 +271,10 @@ const fragmentShader = /* glsl */ `
         float warp = fbm3lo(pc * 1.2 + 4.0) * 2.2;
         // (few strokes near the summit, more and more of them further down, as the fibres splay;
         // they waver only gently, so they run down the slopes rather than swirl)
-        float few = smoothstep(0.86, 0.985, abs(sin((vUv.x * 56.0 + warp * 1.1) * 3.14159)));
-        float many = smoothstep(0.87, 0.985, abs(sin((vUv.x * 150.0 + warp * 2.4) * 3.14159)));
+        // (as many round it as its size calls for: an even count, so they meet where its grid does)
+        float nFew = max(2.0, floor(28.0 * uCunFreq + 0.5) * 2.0), nMany = max(4.0, floor(75.0 * uCunFreq + 0.5) * 2.0);
+        float few = smoothstep(0.86, 0.985, abs(sin((vUv.x * nFew + warp * 1.1) * 3.14159)));
+        float many = smoothstep(0.87, 0.985, abs(sin((vUv.x * nMany + warp * 2.4) * 3.14159)));
         float fibres = mix(few, many, smoothstep(0.35, 0.75, vUv.y));
         float broken = smoothstep(0.35, 0.6, fbm3lo(vec3(cos(ang) * 7.0, vUv.y * 10.0, sin(ang) * 7.0) + 2.0));
         float flank = 1.0 - smoothstep(0.5, 0.92, N.y);
@@ -299,19 +325,40 @@ const fragmentShader = /* glsl */ `
     }
   #endif
 
+  float fadeOut = 1.0;   // (a river thinning away into the mist at its end)
+  float riverWash = 1.0; // (...and its wash, coming and going)
   #ifdef RIVER
     {
-      // water is mostly left blank: long wavy ripple strokes + darker banks
-      vec2 rel = vWorld.xz - uFlow.zw;
-      float along = dot(rel, uFlow.xy);
-      float across = dot(rel, vec2(-uFlow.y, uFlow.x));
+      // a winding river (terrain.js: vUv.x across it, bank to bank -1 → 1; vUv.y metres along it;
+      // uFlow.x its length, uFlow.y how far from its end it fades away). Mostly left as paper, a
+      // pale wash of water: long wavy ripple strokes close by; a firm, broken line along each bank,
+      // the ink gathering just inside it, so far off it still reads as a river winding away
+      float along = vUv.y;
+      float across = vUv.x * 4.0; // (about metres)
+      float a = abs(vUv.x);
       float t = uTime * 0.6;
       float w = fbm3lo(vec3(along * 0.08 - t * 0.2, 0.0, across * 0.3)) * 2.0;
       float ripple = abs(sin((across + w) * 2.6));
       float lineMask = smoothstep(0.93, 0.995, ripple);
       float broken = smoothstep(0.4, 0.62, fbm3lo(vec3(along * 0.25 - t, 2.0, across * 0.8)));
-      float bank = smoothstep(2.2, 3.4, abs(across));
-      ink = (lineMask * broken * 0.9 + bank * 0.35 + 0.04) * wet + rim * uRim * 0.5;
+      float close = 1.0 - smoothstep(25.0, 70.0, dist);
+      float wobble = (fbm3lo(vec3(along * 0.12, 5.0, vUv.x)) - 0.5) * 0.12;
+      float bank = smoothstep(0.45, 0.95, a + wobble);
+      float bankLine = smoothstep(0.8, 0.93, a + wobble) * (1.0 - smoothstep(0.97, 1.0, a))
+                     * mix(0.45, 1.0, smoothstep(0.3, 0.6, fbm3lo(vec3(along * 0.2, 9.0, vUv.x * 2.0))));
+      // further off: a few long lines of current (水纹) down its length, wavering and broken
+      float wl = fbm3lo(vec3(along * 0.03 - t * 0.05, 7.0, 0.0)) * 1.4;
+      float current = smoothstep(0.92, 0.99, abs(sin((vUv.x * 1.3 + wl) * 3.14159)))
+                    * smoothstep(0.56, 0.7, fbm3lo(vec3(along * 0.05, 3.0, vUv.x * 2.0)))
+                    * (1.0 - smoothstep(0.6, 0.8, a));
+      ink = (lineMask * broken * 0.8 * close + current * 0.4 * (1.0 - close) + bank * 0.1
+             + bankLine * mix(0.5, 0.85, 1.0 - close) + 0.02) * wet
+          + rim * uRim * 0.5;
+      // the water's pale wash comes and goes along it, like a brush running dry
+      riverWash = mix(0.35, 1.0, smoothstep(0.3, 0.65, fbm3lo(vec3(along * 0.04, 11.0, vUv.x * 0.6)))) * mix(0.55, 1.0, bank);
+      fadeOut = 1.0 - smoothstep(uFlow.x - uFlow.y + (blot - 0.5) * 14.0, uFlow.x, along);
+      fadeOut *= smoothstep(0.0, 4.0, along); // (and it starts inside the pool, under its water)
+      ink *= fadeOut;
     }
   #endif
 
@@ -391,8 +438,17 @@ const fragmentShader = /* glsl */ `
 
     // light colour washes (浅绛): ochre on lit faces, indigo in shadow
     vec3 washCol = mix(uIndigo, uOchre, smoothstep(0.35, 0.75, lit));
-    vec3 base = mix(uPaper, washCol, uWash * 0.4 * wet * air * (1.0 - atm * 0.7));
+    float washK = 0.4;
+  #ifdef LAYERS
+    // ...a mountain in layers: indigo up along each crest, warm ochre down its slopes to the foot
+    washCol = mix(mix(uOchre, uIndigo, smoothstep(0.3, 0.85, layerK)), washCol, 0.2);
+    washK = mix(0.42, 0.72, layerK);
+  #endif
+    vec3 base = mix(uPaper, washCol, uWash * washK * wet * air * (1.0 - atm * 0.7) * fadeOut * riverWash);
     vec3 inkCol = mix(uInk, uFarTint, atm);
+  #ifdef LAYERS
+    inkCol = mix(inkCol, vec3(0.16, 0.25, 0.35), layerK * 0.4); // (the crests inked in a blue-black: 花青 in the ink)
+  #endif
 
     // 设色: colour blooms where you've stood still and looked (app/colour.js)
     if (uTint > 0.0) {
@@ -450,7 +506,9 @@ export function inkMaterial({
   glow = 0,                   // how much the setting sun warms its paper when you look toward the sun
   soft = false,               // fine detail (trees, bamboo) that softens when you sit at the lookout (ink/post.js)
   cun = 0,                    // texture strokes (皴) on a mountain built by massifGeometry (0 = none)
+  cunFreq = 1,                // ...how many round it (1: a big massif's; a small rock wants fewer)
   rimFade = false,            // fades back into the paper along the rim, away from the lookout (path.js RIM_FADE)
+  layers = false,             // a mountain in layers: its geometry has a `crest` attribute (massifGeometry)
   washLit = null, washShade = null, // per-material colour wash (default ochre / indigo)
   map = null,                 // alpha texture for variant "decal"
   // colour stage: a TINTS name ("foliage", "mountain", ...), "none", or { wash, ink, amount }.
@@ -461,6 +519,7 @@ export function inkMaterial({
   const defines = {};
   if (reveal === "global") defines.GLOBAL_REVEAL = "";
   if (variant) defines[variant.toUpperCase()] = "";
+  if (layers) defines.LAYERS = "";
   const tintName = tint ?? (color === INK && reveal !== "global" ? "rock" : "none");
   const T = typeof tintName === "string" ? TINTS[tintName] : tintName; // undefined for "none"
 
@@ -500,6 +559,7 @@ export function inkMaterial({
       uGlow: { value: glow },
       uSoftObj: { value: soft ? 1 : 0 },
       uCun: { value: cun },
+      uCunFreq: { value: cunFreq },
       uRimFade: { value: rimFade ? 1 : 0 },
       ...(washLit ? { uOchre: { value: washLit } } : {}),
       ...(washShade ? { uIndigo: { value: washShade } } : {}),

@@ -7,6 +7,7 @@ import { SITE } from "../content.js";
 
 import * as terrain from "./landscape/terrain.js";
 import * as mountains from "./landscape/mountains.js";
+import * as crag from "./landscape/crag.js";
 import * as flora from "./landscape/flora.js";
 import * as sky from "./landscape/sky.js";
 import * as structures from "./structures/structures.js";
@@ -29,8 +30,8 @@ import * as petals from "./effects/petals.js";
 // To add something new: write a module like these, then add it to this list
 // (and give it a spot in places.js).
 const MODULES = [
-  // landscape (the ground ends at the cliff)
-  terrain, mountains, flora,
+  // landscape (the ground ends at the cliff; a rock stands in the meadow)
+  terrain, mountains, crag, flora,
   // built things along the path: tablets, lanterns, bridge, pavilion; the well
   structures, well,
   // the garden stroll, and the small lives in it

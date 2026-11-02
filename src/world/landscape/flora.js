@@ -56,7 +56,12 @@ export function build({ scene, P, places, rng }) {
 }
 
 // ---------------------------------------------------------------- trees
-function addTrees(scene, spots, rand, groundAt) {
+/**
+ * Pines at the spots ({ x, z, h, autumn?, y? }: y, if given, is the ground they stand on).
+ * climb / channel: how the ink reaches them (a pine high on a rock: less climb, so it inks in
+ * with the rock under it rather than waiting for the ink to climb up from the ground below).
+ */
+export function addTrees(scene, spots, rand, groundAt, { climb = 0.035, channel = "mid" } = {}) {
   // trunk: unit height, base at y=0, a gentle S-bend baked in, flaring at the foot
   const bend = (y) => 0.45 * Math.sin(y * 2.4) - 0.2 * y;
   const trunkGeo = new THREE.CylinderGeometry(0.13, 0.3, 1, 8, 12).translate(0, 0.5, 0);
@@ -89,13 +94,13 @@ function addTrees(scene, spots, rand, groundAt) {
   }
 
   const woodMat = inkMaterial({
-    channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
+    channel, climb, noiseScale: 0.35, noiseAmp: 0.3,
     near: 5, far: 55, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood", soft: true,
   });
   // needle pads: the same ink for every tree; only what colour they turn when colour
   // blooms differs (evergreen: green; the turning trees: their autumn shade)
   const padMat = (tint) => inkMaterial({
-    channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
+    channel, climb, noiseScale: 0.35, noiseAmp: 0.3,
     near: 6, far: 60, density: 1.45, mist: 1.5, grain: 2.4, sil: 0.7, shade: 0.8,
     ragged: 0.9, sway: 0.004, tint, wash: 0.5, soft: true,
     washLit: new THREE.Color("#8fa77a"), washShade: new THREE.Color("#3f5a45"),
@@ -135,7 +140,7 @@ function addTrees(scene, spots, rand, groundAt) {
     pads = padsBy.get(group);
     const sc = rand.range(0.85, 1.3);
     const lean = rand.range(-0.12, 0.12);
-    treeM.compose(new THREE.Vector3(tr.x, groundAt(tr.x, tr.z) - 0.1, tr.z), q.setFromEuler(new THREE.Euler(lean, rand() * Math.PI * 2, 0, "YXZ")), s.set(1, 1, 1));
+    treeM.compose(new THREE.Vector3(tr.x, (tr.y ?? groundAt(tr.x, tr.z)) - 0.1, tr.z), q.setFromEuler(new THREE.Euler(lean, rand() * Math.PI * 2, 0, "YXZ")), s.set(1, 1, 1));
     trunks.setMatrixAt(i, out.multiplyMatrices(treeM, local.makeScale(sc, tr.h, sc)));
     const trunkAt = (yn) => A.set((0.45 * Math.sin(yn * 2.4) - 0.2 * yn) * sc, yn * tr.h, 0);
 

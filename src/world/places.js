@@ -86,13 +86,15 @@ export function planPlaces(P) {
     lanterns: [0.4, 0.44, 0.48, 0.52, 0.56].map((g, i) => ({
       t: T(g), pos: P.at(T(g), i % 2 ? 1.8 : -1.8), project: [null, 0, 1, 2, null][i],
     })),
-    meadow: { pos: P.at(T(0.66), 8), r: 4.5 },   // deer, wildflowers, butterflies, by the stream
+    meadow: { pos: P.at(T(0.66), 7), r: 4.5 },   // deer, wildflowers, butterflies, by the stream
     plumPavilion: { pos: P.at(T(0.635), -6.2) }, // plum tree where the bamboo opens onto the waterfall
     cranes: { pos: V() },                     // placed by garden/creatures.js
     boat: { pos: V() },                       // drifts; moved by garden/creatures.js
 
     // ---------- spectacles ----------
-    pagoda: { pos: V(6, 0, -103), r: 8, h: 9, tiers: 5 }, // on a knoll: ahead as you cross the bridge
+    // on a knoll: ahead as you cross the bridge (and, from the lookout, to the right of the
+    // waterfall, not in front of it)
+    pagoda: { pos: V(20, 0, -108), r: 8, h: 9, tiers: 5 },
     // the end: a lone pine on the brink, the sun and the geese out over the canyon
     pine: { pos: ahead(1.2, -8), faces: ahead(40, -16) },
     geese: { pos: V(), center: ahead(240, 0).setY(38 + rim), radii: [150, 45], period: 80 },
@@ -123,23 +125,51 @@ export function planPlaces(P) {
   const rc = P.path.getPointAt(STOPS.river);
   const flow = P.sideAt(STOPS.river); // the stream runs left → right across the path
   const across = P.path.getTangentAt(STOPS.river);
+  // ...and on, winding away across the meadows east of the garden: seen from the lookout it
+  // sweeps from the bridge away to the left in long bends, slips behind the rock (places.crag),
+  // and turns away south of where the walk begins, narrowing into the distance up to the foot of
+  // the far mountains on the left, where it fades into the mist under their falls. (It never
+  // comes near the garden path but at the bridge.) Points in x, z; it passes square under the bridge.
+  const BEND = [
+    [-10.8, 0], [0, 0], [10.8, 0],  // (in the bridge's frame: along the flow, across it)
+  ].map(([a, c]) => rc.clone().addScaledVector(flow, a).addScaledVector(across, c))
+    .concat([[15.5, -60], [15, -46], [21, -33], [28, -17], [33, 3], [30, 25], [16, 45], [-8, 60], [-36, 72]].map(([x, z]) => V(x, 0, z)));
+  const curve = new THREE.CatmullRomCurve3(BEND, false, "centripetal");
+  const riverLen = curve.getLength();
+  // where along the curve it passes under the bridge (metres from its start, in the pool)
+  let atBridgeS = 0;
+  for (let i = 0, best = Infinity; i <= 800; i++) {
+    const d = curve.getPointAt(i / 800).distanceTo(rc);
+    if (d < best) [best, atBridgeS] = [d, (i / 800) * riverLen];
+  }
+  const sAt = (along) => THREE.MathUtils.clamp(atBridgeS + along, 0, riverLen);
+  const tg = V();
   places.river = {
-    pos: rc, flow, across, start: -11, // the stream begins at the pool, 11 m upstream
-    at: (along, acr) => rc.clone().addScaledVector(flow, along).addScaledVector(across, acr),
+    pos: rc, flow, across, start: -atBridgeS, // the stream begins in the pool, upstream
+    curve, len: riverLen, end: riverLen - atBridgeS,         // (metres downstream of the bridge to its end)
+    /** half its width, `along` metres downstream of the bridge: narrow out of the pool, broadening */
+    halfWidth: (along) => (3.4 + 2.6 * THREE.MathUtils.smoothstep(along, 8, 70) + 1.2 * THREE.MathUtils.smoothstep(along, 90, 150))
+      * (1 + THREE.MathUtils.smoothstep(Math.abs(along), 6, 16) * (0.2 * Math.sin(along * 0.083 + 0.6) + 0.1 * Math.sin(along * 0.21 + 2.3))), // (its banks never quite parallel: but square under the bridge)
+    /** a point `along` metres downstream of the bridge, `acr` metres across (+: the walk's way at the bridge) */
+    at: (along, acr = 0) => {
+      const t = sAt(along) / riverLen;
+      curve.getTangentAt(t, tg);
+      return curve.getPointAt(t).addScaledVector(V(tg.z, 0, -tg.x).normalize(), acr);
+    },
   };
   places.pool = { pos: places.river.at(-11, 6), r: 9 };
-  // the waterfall's mountain stands right behind the pool. Its falls face halfway between where
-  // you first see them (coming out of the bamboo) and the lookout at the
-  // end, so they're seen well from both, and in the painting
+  // the waterfall's mountain stands right behind the pool. Its falls face between where you
+  // first see them (coming out of the bamboo) and the lookout at the end, a little more toward
+  // the lookout, so the cleft they pour down opens to the painting, and to the bamboo's end
   const view = P.at(T(0.62));
   const toView = view.clone().sub(places.pool.pos).setY(0).normalize();
   const toLookout = places.bench.pos.clone().sub(places.pool.pos).setY(0).normalize();
-  const faces = toView.clone().add(toLookout).normalize();
+  const faces = toView.clone().multiplyScalar(0.47).addScaledVector(toLookout, 0.53).normalize(); // (a shade more toward the lookout: the painting)
   const FALLS_R = 30;
   places.waterfall = {
     // a broad massif (mountains.js), far enough back that only the pool's far edge laps its foot
     pos: places.pool.pos.clone().addScaledVector(faces, -(FALLS_R + places.pool.r * 0.45)),
-    r: FALLS_R, h: 34, lip: 0.55, faces: places.pool.pos.clone().addScaledVector(faces, 30),
+    r: FALLS_R, h: 37, lip: 0.52, faces: places.pool.pos.clone().addScaledVector(faces, 30),
   };
   places.pool.toPath = toView.clone(); // from the pool toward the walk: its near shallows
 
@@ -164,6 +194,19 @@ export function planPlaces(P) {
   };
   // (no pines framing it: below the bench the rim drops away in a steep rock face)
   places.painting.frame = [];
+
+  // ---------- the left of the view from the bench: just two things, a rock near and falls far ----------
+  // a craggy rock standing up out of the meadow on the river's bend (the river slips behind it),
+  // a pine on its crown: a dark mass low on the left of the view, the way a painter anchors one
+  // side of a scroll with a near rock. On level ground, its foot sunk into it.
+  places.crag = { pos: places.painting.toward(-75, 58), r: 12.5, h: 15 };
+  // and far off, beyond where the walk begins, a tall massif, a thread of falls pouring down the
+  // cleft between its two peaks: the river comes winding from its foot (faces: the bench)
+  {
+    const end = places.river.at(places.river.end);
+    const toEye = eye.clone().sub(end).setY(0).normalize();
+    places.farFalls = { pos: end.addScaledVector(toEye, -40).setY(0), r: 46, h: 60, lip: 0.6, faces: eye.clone().setY(0) };
+  }
   // scholar's rocks: around the pond, by the entrance, where the bamboo ends
   const pond = places.pond;
   const toPath = P.at(T(0.13)).sub(pond.pos).normalize();
@@ -178,10 +221,11 @@ export function planPlaces(P) {
 
   // ---------- keep scattered trees (and, where it matters, grass) out ----------
   const r = (p, radius, opts) => P.reserve(p.x, p.z, radius, opts);
-  for (let a = places.river.start; a <= 70; a += 3) {
+  for (let a = places.river.start; a <= places.river.end; a += 3) {
     const p = places.river.at(a, 0);
-    r(p, 6);                       // no trees in, or right on the edge of, the stream
-    r(p, 3, { ground: true });     // no grass on the water; reeds stay on the banks
+    const hw = places.river.halfWidth(a);
+    r(p, hw + 2.6);                // no trees in, or right on the edge of, the stream
+    r(p, hw - 0.4, { ground: true }); // no grass on the water; reeds stay on the banks
   }
   r(places.river.pos, 7.2, { ground: true });  // the bridge: no stepping stones or grass poking through it
   r(places.pool.pos, places.pool.r + 3);
@@ -202,6 +246,9 @@ export function planPlaces(P) {
   r(places.meadow.pos, places.meadow.r + 1.5);
   r(places.plumPavilion.pos, 4);
   r(places.pagoda.pos, places.pagoda.r + 3);
+  r(places.crag.pos, places.crag.r + 3);                   // the rock: no trees growing out of it...
+  r(places.crag.pos, places.crag.r - 1, { ground: true }); // ...nor grass poking through it
+  r(places.farFalls.pos, places.farFalls.r + 6);
   r(places.pine.pos, 3);
   r(P.at(0.97), 7);                // the end: nothing but the view
   r(P.at(0.93), 6);

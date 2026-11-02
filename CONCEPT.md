@@ -55,13 +55,13 @@ stopped to look.
    peeking over. The waterfall is already visible at the end of it.
 4. **Projects**: stone lanterns lining the path through the bamboo; the three that are lit, warm,
    are your projects, their names floating over them (click one and you read it).
-5. **The waterfall**: you come out of the bamboo facing it. Its mountain is a massif after the
-   old painters (Dong Yuan, Huang Gongwang, Fan Kuan): slightly peaked summits, smaller peaks
-   breaking its ridgelines, rocky ribs, flanks flaring out at the foot, long hemp-fibre strokes
-   (披麻皴) running down its slopes, and the falls pour from a cleft between two shoulders into a
-   pool, mist billowing up where they land; cranes wade in
-   the shallows, a fisherman drifts on the pool, deer graze by its stream, which runs under a
-   stone arch bridge.
+5. **The waterfall**: you come out of the bamboo facing it. It comes down between two
+   mountains: twin peaks after the old painters (Dong Yuan, Huang Gongwang, Fan Kuan), folded
+   with rocky ribs, smaller peaks breaking their ridgelines, flanks flaring out at the foot, long
+   hemp-fibre strokes (披麻皴) running down their slopes, a belt of cloud drifting across them;
+   the falls pour from the face of the summit set back between them into a pool, mist billowing
+   up where they land; cranes wade in the shallows, a fisherman drifts on the pool, deer graze
+   by its stream, which runs under a stone arch bridge and winds away across the meadows.
 6. **Resume**: at the bridge, floating over a crane wading in the pool's shallows on its left.
    Open it and the resume unrolls on a hanging scroll (立轴): a cord, a rod, silk round the
    paper, a roller with jade knobs, like the scroll the drop falls into at the start. Across the
@@ -86,8 +86,13 @@ stopped to look.
    sun is the walk's one big accent of cinnabar, and you catch it from far back: beside the
    waterfall, behind the pavilion as you cross the bridge.
 9. **The painting (留念)**: sit on the bench and you turn round, and there's the whole walk laid
-   out below you as one painting: the bamboo, the bridge and the pavilion, the waterfall and the
-   pagoda, the ranges behind, and in it the ink you left as you
+   out below you as one painting: the bamboo, the bridge and the pavilion, the waterfall between
+   its peaks and the pagoda beside them, the ranges behind. Look left and the stream from the
+   bridge sweeps across the meadows in long bends (a pale wash between dark banks), slips behind
+   a craggy rock standing up out of the meadow with a pine on its crown, the near dark mass that
+   anchors that side, and winds away, narrowing, to the foot of a far massif where a thread of
+   falls comes down the cleft between its two peaks: one rock near, one fall far, and the mist
+   between. In it all, the ink you left as you
    walked and the colour where you stopped to look, so no two are the same. Any view from the
    bench is yours to keep: look around (right round to the canyon and the sun), rest your eyes on
    one and it's framed, and one click puts it on your clipboard, sealed, with a line of colophon.
@@ -110,6 +115,10 @@ off to the right, the red sun you'll walk toward. (A moon gate is still an optio
 - **Mist pools at the bottom** of things (classic 留白, "leaving white"). Empty paper is
   part of the composition — don't fill the scene. The mountains rise out of it, their feet
   dissolving into the paper; the canyon's sea of cloud thins away as it comes in to the rim.
+- **Mountains in layers, not mounds:** each is ridges standing one behind another, every ridge
+  inked darkest along its crest in a blue-black, an indigo wash up high and warm ochre down its
+  slopes (浅绛), thinning toward its foot, so the crest of the ridge in front stands out against
+  the pale slopes of the one behind it.
 - **Type:** a calligraphic face for occasional characters, a quiet serif for English.
 
 ## Alternatives considered

@@ -12,7 +12,8 @@ export function build({ scene, P: path, places, rng }) {
   const knoll = path.keepOnLand(massifGeometry(rand, P.pos.x, P.pos.z, P.r * 1.25, P.h, {
     lobes: 2, summit: 2.2, flare: 1.4, peaks: 0, rocky: 0.5, terraces: 0, crown: 0, // (a knoll: rounded)
   }), 2);
-  scene.add(new THREE.Mesh(knoll, mountainMaterial({ cun: 1 })));
+  // (no texture strokes: on a knoll this small they'd read as a skirt)
+  scene.add(new THREE.Mesh(knoll, mountainMaterial({ layers: true })));
 
   const parts = [];
   let y = knoll.userData.heightAt(P.pos.x, P.pos.z) - 0.3; // on its summit
