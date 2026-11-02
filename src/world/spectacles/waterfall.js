@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { inkMaterial } from "../../ink/material.js";
-import { peakGeometry, mountainMaterial } from "../landscape/mountains.js";
+import { peakGeometry, mountainMaterial, mountainBushes } from "../landscape/mountains.js";
 import { facing, peakRadiusAt } from "./common.js";
 import { createMist } from "../effects/mist.js";
 
@@ -15,7 +15,12 @@ export function build({ scene, places, rng }) {
 
   // the mountain, with a ravine cut into the face toward the walk for the falls to pour down
   const gully = { angle: Math.atan2(dir.x, dir.z), depth: 0.5, width: 0.24 };
-  scene.add(new THREE.Mesh(peakGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, 0, gully), mountainMaterial({ cloud: new THREE.Vector4(W.h * 0.75, 3, 0.7, 0.8) })));
+  const peak = peakGeometry(rand, W.pos.x, W.pos.z, W.r, W.h, 0, gully);
+  scene.add(new THREE.Mesh(peak, mountainMaterial({ cloud: new THREE.Vector4(W.h * 0.75, 3, 0.7, 0.8) })));
+  // scrub on its slopes, but none down the ravine the water falls through
+  const off = (p) => Math.abs(Math.atan2(Math.sin(Math.atan2(p.x - W.pos.x, p.z - W.pos.z) - gully.angle),
+    Math.cos(Math.atan2(p.x - W.pos.x, p.z - W.pos.z) - gully.angle)));
+  scene.add(mountainBushes([peak], { seed: 86, density: 0.045, distTo: (p) => p.distanceTo(places.pool.pos), skip: (p) => off(p) < 0.4 }));
 
   // the falls: ribbons inside the ravine, widening as they fall: a broad one, and a thin strand
   // beside it that spills from lower down. The strand keeps a gap from the broad one all the

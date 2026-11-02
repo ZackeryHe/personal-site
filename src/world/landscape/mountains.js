@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { inkMaterial } from "../../ink/material.js";
+import { surfaceSpots, bushInk, bushMesh } from "./bushes.js";
+import { rng } from "../random.js";
 
 /**
  * One shan shui peak: steep, bulging profile with vertical folds. Base sits at y = -2,
@@ -48,6 +50,24 @@ export function mountainMaterial(overrides = {}) {
   });
 }
 
+/**
+ * Bushes (dabs of brush) over mountain geometry, inked in with the mountains themselves.
+ *   geos: their geometries (world space)   distTo(p): metres from where they're seen, to size them
+ *   skip(p): leave a spot bare (e.g. the waterfall's ravine)
+ */
+export function mountainBushes(geos, { seed, distTo, skip = null, density = 0.03 }) {
+  const rand = rng(seed);
+  const spots = geos.flatMap((g) => {
+    // up the slopes and along the ridges, but not perched on the very summit (it reads as a hat)
+    g.computeBoundingBox();
+    const { min, max } = g.boundingBox;
+    return surfaceSpots(g, rand, { density, faces: 0.04, minY: 8, maxY: max.y - (max.y - min.y) * 0.12, skip, cluster: [1, 3] });
+  });
+  return bushMesh(spots, rand, bushInk({
+    channel: "far", climb: 0.004, noiseScale: 0.03, noiseAmp: 0.3, near: 40, far: 320, minFar: 0.22, mist: 18,
+  }), (s) => THREE.MathUtils.clamp(1.2 + distTo(s.p) * 0.012, 1.2, 3.6));
+}
+
 // Clusters of peaks all around, merged into one mesh. They follow the "far" ink
 // channel, so the opening bloom sweeps across them from where you stand.
 export function build({ scene, P, rng }) {
@@ -74,4 +94,6 @@ export function build({ scene, P, rng }) {
   const mesh = new THREE.Mesh(mergeGeometries(geos), mountainMaterial());
   mesh.frustumCulled = false;
   scene.add(mesh);
+  // and the dabs of brush that stand for the trees and scrub on them
+  scene.add(mountainBushes(geos, { seed: 24, distTo: (p) => P.distToPath(p.x, p.z) }));
 }

@@ -4,6 +4,7 @@ import { inkMaterial, SEAL_RED } from "../../ink/material.js";
 import { mountainMaterial } from "../landscape/mountains.js";
 import { createMist } from "../effects/mist.js";
 import { noise3, rng } from "../random.js";
+import { surfaceSpots, bushInk, bushMesh } from "../landscape/bushes.js";
 
 // The end of the walk: nothing built but a stone bench, just the view. The land stops at a
 // cliff over a canyon, and the canyon is a forest of stone: sheer towers rising out of a sea
@@ -59,22 +60,45 @@ function towerGeometry(layout, n, { x, z, r, top, base = -50, crownAt = 0.97, ta
   return g;
 }
 
-/** A small pine clinging to a crown or ledge: a bent trunk and two to four flat pads of needles. */
-function addPine(trunks, pads, rand, x, y, z, h) {
+/** A tube along a curve, thinning from r0 at its root to r1 at its tip. */
+function taperedTube(curve, r0, r1, segs = 8, radial = 5) {
+  const g = new THREE.TubeGeometry(curve, segs, 1, radial); // unit radius: each ring is scaled below
+  const pos = g.attributes.position;
+  const c = new THREE.Vector3();
+  for (let i = 0; i <= segs; i++) {
+    const u = i / segs;
+    curve.getPointAt(u, c);
+    const r = r0 + (r1 - r0) * u;
+    for (let j = 0; j <= radial; j++) {
+      const k = i * (radial + 1) + j;
+      pos.setXYZ(k, c.x + (pos.getX(k) - c.x) * r, c.y + (pos.getY(k) - c.y) * r, c.z + (pos.getZ(k) - c.z) * r);
+    }
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * A pine on a crown, drawn large enough to read from afar: a leaning trunk thinning as it
+ * rises, and two or three flat clouds of needles (clumps, flattened: see landscape/bushes.js).
+ */
+function crownTree(set, rand, x, y, z, h) {
   const a = rand() * Math.PI * 2;
-  const lean = rand.range(0.15, 0.45) * h;
+  const lean = rand.range(0.15, 0.4) * h;
   const at = (t) => new THREE.Vector3(x + Math.cos(a) * lean * t * t, y + h * t, z + Math.sin(a) * lean * t * t);
-  const curve = new THREE.CatmullRomCurve3([at(0), at(0.5), at(1)]);
-  trunks.push(new THREE.TubeGeometry(curve, 5, h * 0.045, 4, false));
-  const tiers = 2 + Math.floor(rand() * 3);
+  const curve = new THREE.CatmullRomCurve3([at(0), at(0.35), at(0.7), at(1)]);
+  set.trunks.push(taperedTube(curve, h * 0.05, h * 0.014));
+  const tiers = 2 + Math.floor(rand() * 2);
   for (let i = 0; i < tiers; i++) {
-    const t = 0.5 + 0.5 * (i / Math.max(1, tiers - 1));
-    const c = curve.getPoint(t);
-    const pr = h * rand.range(0.24, 0.36) * (1.25 - t * 0.5);
-    const off = (1 - t) * pr * 0.7;
+    const t = 0.55 + 0.45 * (i / (tiers - 1));
     const b = rand() * Math.PI * 2;
-    pads.push(new THREE.IcosahedronGeometry(1, 1).scale(pr, pr * 0.3, pr * 0.75).rotateY(rand() * Math.PI)
-      .translate(c.x + Math.cos(b) * off, c.y, c.z + Math.sin(b) * off));
+    const off = (1 - t) * h * 0.2;
+    set.spots.push({
+      p: curve.getPoint(t).add(new THREE.Vector3(Math.cos(b) * off, 0, Math.sin(b) * off)),
+      n: new THREE.Vector3(0, 1, 0), up: true,
+      size: h * rand.range(0.3, 0.4) * (1.2 - t * 0.4),
+      scale: new THREE.Vector3(1.35, 0.42, 1.1),
+    });
   }
 }
 
@@ -172,25 +196,38 @@ function flyingCrane(mats) {
 }
 
 export function build({ scene, P, places }) {
-  const rand = rng(97);
+  const rand = rng(97); // the layout
+  const veg = rng(99);  // trees and bushes (their own stream, so they never shift the layout)
   const n = noise3(rng(98));
   const end = P.end;
   const right = new THREE.Vector3(-P.endDir.z, 0, P.endDir.x);
   const at = (side, ahead) => end.clone().addScaledVector(right, side).addScaledVector(P.endDir, ahead);
   const bench = places.bench?.pos ?? end;
+  const sea = -18; // the top of the sea of cloud
 
   // geometry gathered by how it's inked: near things ink in as you arrive (the far ink reaches
   // ~240 m), far things are always there, pale on the horizon
-  const near = { walls: [], towers: [], trunks: [], pads: [] };
-  const far = { walls: [], towers: [], trunks: [], pads: [] };
+  const near = { walls: [], towers: [], trunks: [], spots: [] };
+  const far = { walls: [], towers: [], trunks: [], spots: [] };
   const NEAR = 220;
-  const pinesOn = (set, crown, r, count, size) => {
-    for (let i = 0; i < count; i++) {
-      const a = rand() * Math.PI * 2;
-      const rr = r * Math.sqrt(rand()) * 0.7;
-      addPine(set.trunks, set.pads, rand, crown.x + Math.cos(a) * rr, crown.y - 0.8, crown.z + Math.sin(a) * rr, size * rand.range(0.7, 1.2));
+  /** bushes all over a rock, above the cloud; and on some crowns a tree or two */
+  const clothe = (set, g, { density = 0.04, faces = 0.03, trees = 0, r = 4, size = 5, bare = false } = {}) => {
+    const crown = g.userData.crown;
+    set.spots.push(...surfaceSpots(g, veg, { density, faces, minY: sea + 9, maxY: bare ? crown.y - 2 : Infinity }));
+    // scrub all over its crown (a bare, upward-facing top is left as paper, and reads as a hole)
+    const cover = bare ? 0 : Math.max(3, Math.min(16, Math.round((r * r) / 6)));
+    for (let i = 0; i < cover; i++) {
+      const a = veg() * Math.PI * 2;
+      const rr = r * 0.8 * Math.sqrt(veg());
+      set.spots.push({ p: new THREE.Vector3(crown.x + Math.cos(a) * rr, crown.y - 0.4, crown.z + Math.sin(a) * rr), n: new THREE.Vector3(0, 1, 0), k: veg.range(0.9, 1.4) });
+    }
+    for (let i = 0; i < trees; i++) {
+      const a = veg() * Math.PI * 2;
+      const rr = r * Math.sqrt(veg()) * 0.6;
+      crownTree(set, veg, crown.x + Math.cos(a) * rr, crown.y - 0.6, crown.z + Math.sin(a) * rr, size * veg.range(0.8, 1.2));
     }
   };
+  const someTrees = (chance) => (veg() < chance ? 1 + Math.floor(veg() * 2) : 0);
 
   // ---------- the canyon's walls: clusters of fused columns receding along both sides ----------
   let templeSpot = null;
@@ -202,9 +239,12 @@ export function build({ scene, P, places }) {
       const top = rand.range(-4, 9) + k * 2.2; // below eye level near you, rising far off
       const p = at(offset, ahead);
       const set = ahead < NEAR ? near : far;
+      const treeSize = Math.min(10, 4 + ahead * 0.014);
       const main = towerGeometry(rand, n, { x: p.x, z: p.z, r, top, crownAt: 0.985 });
       set.walls.push(main);
-      if (side < 0 && k === 2) templeSpot = { p: main.userData.crown, top, r };
+      const temple = side < 0 && k === 2;
+      if (temple) templeSpot = { p: main.userData.crown, top, r };
+      clothe(set, main, { trees: temple ? 0 : someTrees(0.5), r, size: treeSize, bare: temple }); // (the temple's crown stays clear)
       // columns fused to it, standing a little proud of the wall, each its own height
       const columns = 1 + Math.floor(rand() * 3);
       for (let c = 0; c < columns; c++) {
@@ -214,21 +254,20 @@ export function build({ scene, P, places }) {
         const ctop = top + rand.range(-10, 14);
         const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: cr, top: ctop, crownAt: 0.975, flare: rand.range(0, 0.15) });
         set.walls.push(col);
-        if (ahead < 300) pinesOn(set, col.userData.crown, cr, 1 + Math.floor(rand() * 2), rand.range(3, 5));
+        clothe(set, col, { trees: someTrees(0.35), r: cr, size: treeSize * 0.9 });
       }
-      if (ahead < 300 && !(side < 0 && k === 2)) pinesOn(set, main.userData.crown, r, 2 + Math.floor(rand() * 3), rand.range(3.5, 6));
     }
   }
 
   // ---------- the stone forest: towers rising out of the cloud, in layers ----------
   // [side, ahead, radius, top, taper]: placed by hand, like a painter composing. A few tall ones
-  // stand off to either side near at hand, low ones below you in the middle (you look down onto
-  // their pines), and they step back paler and paler, leaving a clear way to the sun.
+  // stand off to either side near at hand, low ones below you in the middle (their crowns just
+  // break the cloud), and they step back paler and paler, leaving a clear way to the sun.
   const TOWERS = [
     // near: framing the view, off to the sides
     [-54, 74, 6, 31, 0.7], [-37, 106, 4.5, 21, 0.75], [57, 86, 6.5, 35, 0.7], [43, 124, 4.5, 18, 0.8],
-    // low ones in the middle, below you
-    [9, 80, 4.5, -8, 0.8], [-13, 130, 5.5, -2, 0.85], [19, 176, 6, 6, 0.8],
+    // low ones in the middle, below you: their crowns just break the cloud
+    [-13, 130, 5.5, 1, 0.85], [19, 176, 6, 8, 0.8],
     // the arch's two towers (the arch is flung between them, below)
     [31, 166, 7.5, 41, 0.8], [63, 184, 9.5, 47, 0.85],
     // the middle distance
@@ -239,6 +278,7 @@ export function build({ scene, P, places }) {
     [74, 406, 17, 106, 0.7], [125, 466, 21, 136, 0.65], [64, 526, 14, 82, 0.75],
     [-94, 566, 19, 112, 0.7], [106, 586, 19, 117, 0.7],
   ];
+  const ARCH = [6, 7]; // the arch's two towers in TOWERS
   const towerAxis = [];
   TOWERS.forEach(([side, ahead, r, top, taper], i) => {
     const p = at(side, ahead);
@@ -248,10 +288,10 @@ export function build({ scene, P, places }) {
     });
     set.towers.push(g);
     towerAxis.push(p);
-    const pineSize = Math.min(7, 2.6 + ahead * 0.012);
-    if (ahead < 360) pinesOn(set, g.userData.crown, r * taper, 2 + Math.floor(rand() * 4), pineSize);
+    const treeSize = Math.min(11, 4 + ahead * 0.015);
+    clothe(set, g, { trees: someTrees(0.55), r: r * taper, size: treeSize });
     // most have lesser columns fused to them, each its own height: stepped, irregular skylines
-    if (i === 7 || i === 8) return; // (but keep the arch's two towers clean)
+    if (ARCH.includes(i)) return; // (but keep the arch's two towers clean)
     const companions = rand() < 0.75 ? 1 + Math.floor(rand() * 2) : 0;
     for (let c = 0; c < companions; c++) {
       const a = rand() * Math.PI * 2;
@@ -261,43 +301,46 @@ export function build({ scene, P, places }) {
       const ctop = top - (top + 24) * rand.range(0.15, 0.55);
       const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: cr, top: ctop, taper: rand.range(0.7, 0.9) });
       set.towers.push(col);
-      if (ahead < 360) pinesOn(set, col.userData.crown, cr * 0.7, 1 + Math.floor(rand() * 2), pineSize * 0.85);
+      clothe(set, col, { trees: someTrees(0.3), r: cr * 0.7, size: treeSize * 0.85 });
     }
   });
 
   // ---------- a cliff left of the middle, with a waterfall leaping from it into the cloud ----------
-  const FALL = { side: -30, ahead: 150, r: 13, top: 10 };
+  const FALL = { side: -30, ahead: 150, r: 13, top: 16 };
   const fallCliff = at(FALL.side, FALL.ahead);
   {
     const g = towerGeometry(rand, n, { x: fallCliff.x, z: fallCliff.z, r: FALL.r, top: FALL.top, crownAt: 0.985 });
     near.walls.push(g);
-    pinesOn(near, g.userData.crown, FALL.r, 3, 4.5);
+    clothe(near, g, { trees: 2, r: FALL.r, size: 6 });
     for (const [a, f, h] of [[2.2, 0.55, 8], [3.6, 0.45, -3]]) { // a shoulder and a lower step beside it
       const q = fallCliff.clone().addScaledVector(right, Math.cos(a) * FALL.r * 0.85).addScaledVector(P.endDir, Math.sin(a) * FALL.r * 0.85);
       const col = towerGeometry(rand, n, { x: q.x, z: q.z, r: FALL.r * f, top: FALL.top + h, crownAt: 0.98, taper: 0.85 });
       near.walls.push(col);
-      pinesOn(near, col.userData.crown, FALL.r * f * 0.7, 2, 4);
+      clothe(near, col, { trees: 1, r: FALL.r * f * 0.7, size: 5.5 });
     }
   }
 
   // ---------- 天生桥: a natural stone arch between two towers on the right ----------
-  const ARCH = [7, 8]; // its two towers in TOWERS
   const archA = towerAxis[ARCH[0]];
   const archB = towerAxis[ARCH[1]];
   const archY = 31;
   const arch = archGeometry(rand, n, archA, archB, archY, 8);
-  for (let i = 0; i < 2; i++) { // a pine or two on its back
-    const p = archA.clone().lerp(archB, 0.35 + i * 0.3);
-    addPine(near.trunks, near.pads, rand, p.x, archY + 1.2, p.z, rand.range(3, 4.5));
+  near.spots.push(...surfaceSpots(arch, veg, { density: 0.2, faces: 0.05 })); // bushes along its back
+  {
+    const p = archA.clone().lerp(archB, 0.42);
+    crownTree(near, veg, p.x, archY + 1.6, p.z, 6); // and a pine
   }
 
   // ---------- materials ----------
+  // The cloud hides the rocks' feet: their ink fades out just above the sea of cloud, to a
+  // wandering line, and the billows (below) heap up round them; some feet show through.
   // (glow: their misty, paper-pale parts take on the sun's warm haze, like the sky behind them)
-  const stone = (cloud) => ({
-    climb: 0, grain: 0.3, near: 30, far: 520, minFar: 0.16, mistBase: -40, mist: -6, wash: 1, glow: 0.95, cloud,
+  // (mist: the height above which they're fully clear of it)
+  const stone = (cloud, mist) => ({
+    climb: 0, grain: 0.3, near: 30, far: 520, minFar: 0.16, mistBase: sea - 2, mist, wash: 1, glow: 0.95, cloud,
   });
-  const wallCloud = new THREE.Vector4(-21, 5, 0.6, 0.6);    // mist pooled around the walls' feet, at the sea of cloud
-  const towerCloud = new THREE.Vector4(10, 7, 0.7, 0.5);    // a belt of cloud through the towers' middles
+  const wallCloud = new THREE.Vector4(sea - 2, 4, 0.5, 0.6); // mist pooled around the walls' feet
+  const towerCloud = new THREE.Vector4(12, 7, 0.7, 0.5);     // a belt of cloud through the towers' middles
   const add = (geos, mat) => {
     if (!geos.length) return null;
     const m = new THREE.Mesh(mergeGeometries(geos), mat);
@@ -306,19 +349,22 @@ export function build({ scene, P, places }) {
     return m;
   };
   // near stone is inked darker than far, so the layers step back one behind another
-  add(near.walls, mountainMaterial({ ...stone(wallCloud), density: 1.1 }));
-  add(far.walls, mountainMaterial({ ...stone(wallCloud), reveal: "global" }));
-  add(near.towers, mountainMaterial({ ...stone(towerCloud), density: 1.15 }));
-  add(far.towers, mountainMaterial({ ...stone(new THREE.Vector4(24, 10, 0.7, 0.4)), reveal: "global" }));
-  add([arch], mountainMaterial({ ...stone(new THREE.Vector4(0, 1, 0, 0)), density: 1.15 }));
-  const pineInk = (opts) => inkMaterial({
-    channel: "far", climb: 0, noiseScale: 0.1, noiseAmp: 0.25, near: 30, far: 520, minFar: 0.2,
-    mist: 0.01, mistBase: -70, grain: 0.8, sil: 0.5, ...opts,
+  add(near.walls, mountainMaterial({ ...stone(wallCloud, -5), density: 1.1 }));
+  add(far.walls, mountainMaterial({ ...stone(wallCloud, -5), reveal: "global" }));
+  add(near.towers, mountainMaterial({ ...stone(towerCloud, -4), density: 1.15 }));
+  add(far.towers, mountainMaterial({ ...stone(new THREE.Vector4(24, 10, 0.7, 0.4), -4), reveal: "global" }));
+  add([arch], mountainMaterial({ ...stone(new THREE.Vector4(0, 1, 0, 0), -4), density: 1.15 }));
+  // trees and bushes, fading into the cloud like the rock they grow on
+  const growth = { near: 30, far: 520, minFar: 0.2, mistBase: sea - 2, mist: -5, glow: 0.6 };
+  const trunkInk = (opts) => inkMaterial({
+    channel: "far", climb: 0, noiseScale: 0.1, noiseAmp: 0.25, grain: 0.8, sil: 0.5, density: 1.1, shade: 0.5,
+    tint: "wood", ...growth, ...opts,
   });
-  add(near.trunks, pineInk({ density: 1.1, shade: 0.5, tint: "wood" }));
-  add(near.pads, pineInk({ density: 1.3, shade: 0.75, ragged: 0.5, tint: "foliage", sketch: false }));
-  add(far.trunks, pineInk({ reveal: "global", density: 1.0, shade: 0.5, tint: "wood", glow: 0.6 }));
-  add(far.pads, pineInk({ reveal: "global", density: 1.15, shade: 0.75, ragged: 0.5, tint: "foliage", glow: 0.6 }));
+  add(near.trunks, trunkInk());
+  add(far.trunks, trunkInk({ reveal: "global", density: 1 }));
+  const bushSize = (s) => s.size ?? THREE.MathUtils.clamp(0.8 + s.p.distanceTo(bench) * 0.0075, 0.8, 4.5);
+  scene.add(bushMesh(near.spots, veg, bushInk({ channel: "far", ...growth }), bushSize));
+  scene.add(bushMesh(far.spots, veg, bushInk({ reveal: "global", density: 1.1, ...growth }), bushSize));
 
   // the temple stands on a mesa top on the left, a little way out
   if (templeSpot) {
@@ -327,34 +373,43 @@ export function build({ scene, P, places }) {
   }
 
   // ---------- the waterfall: from the lip of the cliff left of the middle, down into the cloud ----------
-  const sea = -24; // the top of the sea of cloud
   const toBench = bench.clone().sub(fallCliff).setY(0).normalize();
   const lip = fallCliff.clone().addScaledVector(toBench, FALL.r * 1.06);
   scene.add(new THREE.Mesh(
     fallGeometry(lip, toBench, FALL.top - 1, sea - 2, 1.6, 6.5),
     inkMaterial({
       variant: "waterfall", tint: "water", channel: "far", climb: 0, noiseScale: 0.05, noiseAmp: 0.2,
-      near: 40, far: 520, minFar: 0.35, density: 0.85, mist: 0.01, grain: 0.3, sil: 0, rim: 0.3,
+      near: 40, far: 520, minFar: 0.35, density: 0.85, mistBase: sea - 2, mist: -6, grain: 0.3, sil: 0, rim: 0.3,
       side: THREE.DoubleSide,
     })
   ));
-  const falls = [lip.clone().addScaledVector(toBench, 1.5).setY(sea + 3)];
+  const falls = [lip.clone().addScaledVector(toBench, 1.5).setY(sea + 4)];
 
-  // ---------- cloud: lying in the gorge, wreathing the towers' feet, spray where the falls vanish ----------
+  // ---------- cloud: billowing over the gorge and heaped round the rocks' feet (all of it below
+  // your eye, so you look down onto it), thin veils drifting through the far towers, spray
+  // where the falls vanish ----------
   createMist(scene, rand, {
-    count: 36, size: [18, 44], life: 34, rise: 0.05, grow: 0.5, drift: 6, opacity: 0.42, shadeAmount: 0.28, glow: 0.8,
+    count: 64, size: [20, 48], life: 34, rise: 0.04, grow: 0.5, drift: 6, opacity: 0.55, shadeAmount: 0.32, glow: 0.8,
     spots: (i, r) => {
-      const ahead = r.range(25, 480);
-      const p = at(r.range(-1, 1) * (24 + ahead * 0.38), ahead);
-      return [p.x, r.range(sea - 2, sea + 14), p.z];
+      const ahead = r.range(15, 500);
+      const p = at(r.range(-1, 1) * (26 + ahead * 0.4), ahead);
+      return [p.x, r.range(sea - 3, sea + 6), p.z];
     },
   });
   createMist(scene, rand, {
-    count: towerAxis.length * 2, size: [12, 26], life: 26, rise: 0.08, grow: 0.6, drift: 4, opacity: 0.45, shadeAmount: 0.25, glow: 0.8,
+    count: towerAxis.length * 3, size: [14, 28], life: 26, rise: 0.06, grow: 0.6, drift: 4, opacity: 0.55, shadeAmount: 0.3, glow: 0.8,
     spots: (i, r) => {
-      const p = towerAxis[i >> 1];
+      const p = towerAxis[Math.floor(i / 3)];
       const a = r() * Math.PI * 2;
-      return [p.x + Math.cos(a) * 8, r.range(sea, sea + 18), p.z + Math.sin(a) * 8];
+      return [p.x + Math.cos(a) * 9, r.range(sea - 1, sea + 8), p.z + Math.sin(a) * 9];
+    },
+  });
+  createMist(scene, rand, {
+    count: 10, size: [30, 56], life: 48, rise: 0.02, grow: 0.4, drift: 10, opacity: 0.2, shadeAmount: 0.15, glow: 0.9,
+    spots: (i, r) => {
+      const ahead = r.range(200, 450);
+      const p = at((r() < 0.5 ? -1 : 1) * r.range(45, 40 + ahead * 0.35), ahead); // off to the sides, clear of the sun
+      return [p.x, r.range(0, 12), p.z];
     },
   });
   createMist(scene, rand, {
@@ -403,6 +458,7 @@ export function build({ scene, P, places }) {
     .setY(centre.y + dy + Math.sin(a * 2) * 4);
 
   return {
+    bushes: near.spots.length + far.spots.length,
     update(time) {
       for (const c of cranes) {
         const a = (time / flight.period - c.lag) * Math.PI * 2;

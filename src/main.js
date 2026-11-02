@@ -58,7 +58,7 @@ const brush = createBrush({ canSplat: () => !picker.hovered }); // the pointer
 const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
 const hint = createHint(SITE.stillHint);
 let walked = 0; // metres, so the hint waits until you've had a wander
-if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera }; // poke around in the console
+if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene }; // poke around in the console
 
 // ---------- Loop ----------
 function resize() {

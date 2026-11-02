@@ -179,7 +179,8 @@ const fragmentShader = /* glsl */ `
       float cy = uCloud.x + (fbm3lo(vec3(vWorld.x * 0.012 + drift * 0.01, 0.0, vWorld.z * 0.012)) - 0.5) * uCloud.y * 3.0;
       float dy = (vWorld.y - cy) / uCloud.y;
       cloud = exp(-dy * dy) * uCloud.z;
-      cloud *= smoothstep(0.25, 0.55, fbm3lo(vec3(vWorld.x * 0.03 + drift * 0.03, vWorld.y * 0.08, vWorld.z * 0.03)));
+      // (soft-edged patches: crisp ones get outlined by the watercolour pass and read as holes)
+      cloud *= smoothstep(0.15, 0.75, fbm3lo(vec3(vWorld.x * 0.03 + drift * 0.03, vWorld.y * 0.08, vWorld.z * 0.03)));
     }
     float air = mix(0.12, 1.0, mist) * (1.0 - cloud);
 

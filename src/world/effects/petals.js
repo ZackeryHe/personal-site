@@ -3,7 +3,8 @@ import { inkMaterial } from "../../ink/material.js";
 
 // Petals and leaves drifting down around you as you walk: plum-blossom pinks and whites
 // early on, turning to gold and orange leaves toward the end. They flutter, spin, rest
-// on the ground a moment, then drift down again somewhere near you.
+// on the ground a moment, then drift down again somewhere near you. None fall around the
+// bench at the end, and any the breeze carries toward the cliff dissolve before the edge.
 
 const COLOURS = [
   ["#e8a3b1", 0], // plum blossom
@@ -14,8 +15,15 @@ const COLOURS = [
 ];
 const PER_COLOUR = 22;
 
-export function build({ scene, P, rng }) {
+export function build({ scene, P, places, rng }) {
   const rand = rng(107);
+  const bench = places.bench?.pos;
+  const clear = places.bench?.keepClear ?? 0;
+  /** 1 where petals may be, fading to 0 toward the bench's clearing and the cliff edge */
+  const allowed = (x, z) => {
+    const fromBench = bench ? Math.hypot(x - bench.x, z - bench.z) : Infinity;
+    return THREE.MathUtils.smoothstep(fromBench, clear, clear + 3) * THREE.MathUtils.smoothstep(-P.cliffDist(x, z), 1.5, 4);
+  };
   // a petal: a small rounded almond, slightly cupped
   const shape = new THREE.Shape();
   shape.moveTo(0, -0.07);
@@ -72,6 +80,10 @@ export function build({ scene, P, rng }) {
             const ahead = rand.range(-3, 16);
             const side = rand.range(-9, 9);
             p.pos.set(camera.position.x + fwd.x * ahead - fwd.z * side, rand.range(3, 7), camera.position.z + fwd.z * ahead + fwd.x * side);
+            if (allowed(p.pos.x, p.pos.z) < 1) {
+              f.mesh.setMatrixAt(i, m4.makeScale(0, 0, 0));
+              return;
+            }
             p.alive = true;
             p.rest = 0;
           }
@@ -86,7 +98,9 @@ export function build({ scene, P, rng }) {
             p.rest += dt;
             if (p.rest > 4) p.alive = false;
           }
-          f.mesh.setMatrixAt(i, m4.compose(p.pos, q.setFromEuler(e), sc.setScalar(p.scale)));
+          const fade = allowed(p.pos.x, p.pos.z); // drifting toward the bench or the edge: it dissolves
+          if (fade <= 0) p.alive = false;
+          f.mesh.setMatrixAt(i, m4.compose(p.pos, q.setFromEuler(e), sc.setScalar(p.scale * fade)));
         });
         f.mesh.instanceMatrix.needsUpdate = true;
       }

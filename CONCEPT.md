@@ -54,10 +54,13 @@ stopped to look.
    deer graze by its stream, which runs under a stone arch bridge.
 6. **Resume**: across the bridge, the pagoda on the canyon's rim, and the pavilion, its hanging
    scrolls the pages of your resume.
-7. **The end: nothing built but a stone bench.** The land stops at a cliff with a lone pine on
-   the brink. Below, a canyon that is a forest of stone: sheer towers rising out of a sea of
-   cloud (云海), pines on their crowns, cloud drifting through their middles, a natural stone arch
-   (天生桥) between two of them, a waterfall leaping into the cloud. They step back in layers, each
+7. **The end: nothing built but a stone bench, right at the edge.** The land stops at a cliff
+   with a lone pine on the brink; no flowers grow and no petals fall around the bench, so it's
+   just you and the view. Below, a canyon that is a forest of stone: sheer towers rising out of
+   a sea of cloud (云海) that you look down onto, their feet lost in billowing cloud, their
+   ledges and crowns dotted with scrub (点苔, the dabs painters use for distant vegetation) and
+   here and there a pine, a natural stone arch (天生桥) between two of them, a waterfall leaping
+   into the cloud. They step back in layers, each
    paler than the last, to the far ranges and a huge red sun (红日) setting in the saddle between
    them, its warm glow washed across the sky and the haze, cranes gliding across its face. The
    sun is the walk's one big accent of cinnabar, and you catch it from far back: beside the

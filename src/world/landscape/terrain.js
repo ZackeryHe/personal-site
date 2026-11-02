@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { inkMaterial } from "../../ink/material.js";
 import { STOPS } from "../places.js";
 
-// The ground (ending at the cliff), stepping stones, grass, the stream and its reeds,
-// and the broken rocks along the canyon's rim.
+// The ground (ending at the cliff), stepping stones, grass, the stream and its reeds.
+// (No rocks along the canyon's rim: at the end there's nothing but the view.)
 export function build({ scene, P, places, rng }) {
   const rand = rng(11);
   const dummy = new THREE.Object3D();
@@ -82,28 +82,6 @@ export function build({ scene, P, places, rng }) {
   });
   stones.frustumCulled = false;
   scene.add(stones);
-
-  // ---------- The canyon's rim: broken rocks along the edge, out to either side ----------
-  const rimRocks = [];
-  for (let x = P.end.x - 22; x <= P.end.x + 30; x += rand.range(1.6, 3.2)) {
-    const z = P.edgeZ(x) + rand.range(0.3, 1.3);
-    if (Math.hypot(x - places.pine.pos.x, z - places.pine.pos.z) < 1.8) continue; // the lone pine's spot
-    if (Math.hypot(x - bench.x, z - bench.z) < 12) continue; // nothing but the view from the bench
-    rimRocks.push({ x, z, s: rand.range(0.5, 1.5) });
-  }
-  const rim = new THREE.InstancedMesh(stoneGeo, inkMaterial({
-    channel: "mid", bias: 0.05, climb: 0.04, noiseScale: 0.6, noiseAmp: 0.3,
-    near: 4, far: 60, density: 0.9, mist: 0.01, grain: 1.6, shade: 0.25, sil: 0.8,
-  }), rimRocks.length);
-  rimRocks.forEach((r, i) => {
-    dummy.position.set(r.x, -0.15, r.z);
-    dummy.rotation.set(rand.range(-0.3, 0.3), rand() * Math.PI, rand.range(-0.3, 0.3));
-    dummy.scale.set(r.s * rand.range(0.9, 1.4), r.s * rand.range(0.4, 0.8), r.s);
-    dummy.updateMatrix();
-    rim.setMatrixAt(i, dummy.matrix);
-  });
-  rim.frustumCulled = false;
-  scene.add(rim);
 
   // ---------- Grass tufts and reeds: quick brush flicks ----------
   const blades = [];

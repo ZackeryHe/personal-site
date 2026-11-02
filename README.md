@@ -19,7 +19,7 @@ Dev URL options (combine with `&`):
 | `?instant` | skip the opening drop; ink has already spread around you |
 | `?look=-0.6` | start with your head turned (negative = left), until you move the mouse |
 | `?warp=4` | run time 4× faster (testing blooms and other slow things) |
-| `?debug` | exposes `window.site` (walker, colour, drops, world…) in the console; `site.world.built` holds each world module's state |
+| `?debug` | exposes `window.site` (walker, colour, drops, world, scene…) in the console; `site.world.built` holds each world module's state |
 
 e.g. the koi pond: `?t=0.135&instant&look=-0.75`
 
@@ -64,14 +64,16 @@ src/
     places.js        where everything is: stops, markers for your points, scenery
     path.js          the walk's curve + helpers (at(t, side), heightAt, the cliff, reserve/blocked)
     landscape/       terrain (ground ending at the cliff, stones, grass, the stream), mountains,
-                     trees, sky (distant ranges, the red sun and its glow, birds)
+                     trees, bushes (dabs of scrub scattered over any mountain), sky (distant
+                     ranges, the red sun and its glow, birds)
     structures/      the avenue of tablets (Experience), lanterns in the bamboo (Projects),
                      the bridge, the pavilion (Resume)
     garden/          koi pond, plants (bamboo, plum, flowers), creatures (cranes, deer,
                      butterflies, the boat), critters (birds + rabbits that react to you),
                      landmarks (your name rock, the GitHub / LinkedIn / Email rocks, scholar's rocks)
-    spectacles/      the waterfall + its pool, the canyon at the end (vista: towers in layers,
-                     the sea of cloud, the stone arch, a waterfall, cranes crossing the sun),
+    spectacles/      the waterfall + its pool, the canyon at the end (vista: towers in layers
+                     dotted with scrub, the sea of cloud, the stone arch, a waterfall, cranes
+                     crossing the sun),
                      the temple on a mesa, the lone pine on the brink, pagoda, geese
     effects/         mist (soft drifting puffs, on the GPU), petals drifting down around you
 ```

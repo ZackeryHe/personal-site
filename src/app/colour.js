@@ -23,6 +23,7 @@ const easeOutBack = (x) => {
 export function createColour({ renderer, scene, walker, world }) {
   const C = CONFIG.colour;
   const rand = rng(101);
+  const nearBench = (x, z) => world.bench && Math.hypot(x - world.bench.x, z - world.bench.z) < world.benchClear;
   const clamp01 = (x) => THREE.MathUtils.clamp(x, 0, 1);
 
   // where colour has bloomed: a second ink field (near things, far things)
@@ -162,13 +163,14 @@ export function createColour({ renderer, scene, walker, world }) {
       const sz = b.z + Math.sin(a) * r;
       if (world.distToPath(sx, sz) < 1.3 || world.blocked(sx, sz, { by: "grass" })) continue; // not on the path or water
       if (world.overCliff(sx, sz, 0.6)) continue; // nor out over the canyon, where there's no ground
+      if (nearBench(sx, sz)) continue;           // nor around the bench at the end: just grass and the view
       addSprout(sx, sz, now, walker.point);
       b.sprouted++;
     }
     // ...and butterflies come once it's well under way (to blooms on solid ground)
     if (!b.butterflies && b.strength > 0.45) {
       b.butterflies = true;
-      if (world.overCliff(b.x, b.z, 1)) return;
+      if (world.overCliff(b.x, b.z, 1) || nearBench(b.x, b.z)) return;
       for (let j = 0; j < 2; j++) {
         const f = flies[nextFly++ % flies.length];
         f.center.set(b.x, 0, b.z);

@@ -12,16 +12,38 @@ export function build({ scene, places, rng }) {
   const up = new THREE.Vector3(0, 1, 0);
   const root = C.pos.clone().setY(-0.2);
   const p = (u, d, s) => root.clone().addScaledVector(up, u).addScaledVector(dir, d).addScaledVector(side, s);
-  const branch = (points, radius) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, radius, 6);
+  /** A limb along the points, thinning from r0 at its root to r1 at its tip. */
+  const branch = (points, r0, r1) => {
+    const curve = new THREE.CatmullRomCurve3(points);
+    const segs = 24;
+    const radial = 7;
+    const g = new THREE.TubeGeometry(curve, segs, 1, radial); // unit radius: each ring is scaled below
+    const pos = g.attributes.position;
+    const c = new THREE.Vector3();
+    for (let i = 0; i <= segs; i++) {
+      const u = i / segs;
+      curve.getPointAt(u, c);
+      const r = r0 + (r1 - r0) * Math.pow(u, 0.75);
+      for (let j = 0; j <= radial; j++) {
+        const k = i * (radial + 1) + j;
+        pos.setXYZ(k, c.x + (pos.getX(k) - c.x) * r, c.y + (pos.getY(k) - c.y) * r, c.z + (pos.getZ(k) - c.z) * r);
+      }
+    }
+    g.computeVertexNormals();
+    return g;
+  };
 
-  // the trunk leans out over the drop; the arm reaches further out, a little drooping
+  // the trunk leans out over the drop; the arm reaches further out, a little drooping, and
+  // every limb thins out toward its tip
   const trunk = [p(0, 0, 0), p(2.2, 0.8, 0.4), p(4.4, 1.6, -0.2), p(6.2, 2.9, 0.3)];
   const arm = [p(3.6, 1.3, -0.1), p(4.0, 3.4, 1.4), p(3.6, 5.8, 2.6), p(3.0, 7.8, 3.3)];
   const wood = [
-    branch(trunk, 0.42),
-    branch(arm, 0.24),
-    branch([p(5, 2.0, 0), p(5.6, 2.4, -2.2), p(5.7, 2.2, -3.9)], 0.16),
-    branch([p(5.8, 2.6, 0.1), p(6.5, 4.4, 1.3), p(6.6, 5.6, 1.8)], 0.14),
+    branch(trunk, 0.46, 0.17),
+    branch(arm, 0.26, 0.045),
+    branch([p(5, 2.0, 0), p(5.6, 2.4, -2.2), p(5.7, 2.2, -3.9)], 0.15, 0.035),
+    branch([p(5.8, 2.6, 0.1), p(6.5, 4.4, 1.3), p(6.6, 5.6, 1.8)], 0.13, 0.03),
+    branch([p(3.9, 4.6, 1.9), p(4.6, 5.0, 2.6), p(5.0, 5.3, 2.4)], 0.07, 0.02),   // twigs off the arm,
+    branch([p(3.5, 6.9, 3.0), p(3.9, 7.2, 4.0), p(4.1, 7.6, 4.2)], 0.055, 0.015), // holding its pads
   ];
   scene.add(new THREE.Mesh(mergeGeometries(wood), inkMaterial({
     channel: "mid", climb: 0.03, noiseScale: 0.35, noiseAmp: 0.3, near: 6, far: 60,
@@ -57,8 +79,10 @@ export function build({ scene, places, rng }) {
         .translate(c.x + (j ? rand.range(-0.7, 0.7) * r : 0), c.y + (j ? rand.range(-0.06, 0.16) * r : 0), c.z + (j ? rand.range(-0.6, 0.6) * r : 0)));
     }
   };
-  pad(p(3.4, 8.1, 3.5), 1.9);
-  pad(p(4.0, 6.4, 2.7), 1.5);
+  pad(p(3.35, 8.0, 3.45), 1.25); // smaller out toward the end of the arm
+  pad(p(4.1, 7.6, 4.2), 1.1);
+  pad(p(4.0, 6.4, 2.7), 1.4);
+  pad(p(5.0, 5.3, 2.4), 1.15);
   pad(p(4.2, 4.6, 1.8), 1.2);
   pad(p(5.8, 2.3, -4.1), 1.5);
   pad(p(6.8, 5.8, 1.9), 1.4);

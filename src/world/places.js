@@ -77,7 +77,8 @@ export function planPlaces(P) {
     pine: { pos: ahead(3.0, -8), faces: ahead(40, -16) },
     geese: { pos: V(), center: ahead(240, 0).setY(38), radii: [150, 45], period: 80 },
     sun: { pos: ahead(720, 0).setY(112), r: 86 },    // setting, low over the far end of the canyon
-    bench: { pos: ahead(1.4, 0) },                    // a stone bench at the brink: sit, and look
+    bench: { pos: ahead(2.6, 0), keepClear: 12 },     // a stone bench right at the brink: sit, and look
+                                                      // (keepClear: no flowers or petals within this many metres)
     temple: { pos: V() },                     // on top of one of the canyon's pillars (spectacles/vista.js)
   };
   places.contacts = { pos: places.links[1].pos.clone() };        // marker: over the middle rock

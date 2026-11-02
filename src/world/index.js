@@ -66,6 +66,7 @@ export function buildWorld(scene) {
     markers,
     clickables: places.clickables ?? [], // things in the world you can click (the GitHub / LinkedIn / Email rocks)
     bench: places.bench?.pos,            // where you sit at the end
+    benchClear: places.bench?.keepClear ?? 0, // ...and how far around it stays clear of flowers and petals
     built,
     update(time, camera) {
       for (const update of updaters) update(time, camera);
