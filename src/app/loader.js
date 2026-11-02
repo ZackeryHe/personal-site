@@ -3,15 +3,14 @@ import { SITE } from "../content.js";
 // The greeting's page layer (the 3D of it is app/greeting.js): your name in white and a line
 // of status over the dim grey, until the 3D greeting is drawn behind them. Click anywhere (even
 // before it's ready: it goes as soon as it is), or scroll once it's ready: the drop falls into a
-// scroll below, you follow it down into the paper, and the world opens out of that paper
-// (it starts as blank paper too). (While it's up, scrolling doesn't walk you on unseen.)
+// scroll below, the world paints itself out over the scroll from where it lands, and you come
+// down over it till it is the world (greeting.js). (While it's up, scrolling doesn't walk you on unseen.)
 
 const WALK_KEYS = ["ArrowUp", "ArrowDown", "w", "W", "s", "S", "PageDown", "PageUp", " "];
 
 export function createLoader() {
   const el = document.getElementById("loader");
   const status = el?.querySelector(".loader-status");
-  const inkCover = el?.querySelector(".loader-ink"); // (paper now: the scroll's, the world's)
   const touch = matchMedia("(pointer: coarse)").matches;
   let wantsIn = false; // clicked while it was still getting ready
   let ready = null;    // set once ready: go
@@ -61,9 +60,8 @@ export function createLoader() {
 
     /**
      * Ready: wait for the visitor (or go at once, if they already clicked), then let the drop
-     * fall into the scroll (fall(onCover): calls onCover({ x, y, r }) as the scroll's paper is
-     * about to fill the view, with where its blot of ink is on screen). Resolves once the view
-     * is all paper, the blot still on it.
+     * fall into the scroll (fall(): resolves once the world, painted out over the scroll, fills
+     * the view). Resolves then.
      */
     ready({ fall }) {
       if (!el) return Promise.resolve();
@@ -81,45 +79,17 @@ export function createLoader() {
           gone = true;
           el.removeAttribute("role");
           el.classList.add("is-falling"); // (the words fade)
-          let covered = null;
-          await fall((blot) => {
-            // the same paper as the scroll's comes up over it, with the same blot on it, just there
-            if (blot) {
-              inkCover.style.setProperty("--blot-x", `${blot.x}px`);
-              inkCover.style.setProperty("--blot-y", `${blot.y}px`);
-              inkCover.style.setProperty("--blot-r", `${blot.r}px`);
-            }
-            el.classList.add("is-covered");
-            covered = coverUp();
-          });
-          await (covered ?? coverUp());
+          await fall();
           resolve();
         };
         if (wantsIn) ready();
       });
     },
 
-    /** The world is drawing beneath the paper now, its ink spreading from the blot: clear away. */
-    open() {
-      if (!el) return;
-      const r = parseFloat(inkCover.style.getPropertyValue("--blot-r")) || 0;
-      inkCover.style.setProperty("--blot-r", `${Math.max(r * 6, 160)}px`); // (spreading out as it goes)
-      el.classList.add("is-open");
-      setTimeout(done, 1500);
-    },
+    /** The world has the screen now: clear away. */
+    open: done,
 
     /** Skip the greeting (dev: ?go, ?instant). */
     dismiss: done,
   };
-
-  /** Resolves once the paper cover is fully up. */
-  function coverUp() {
-    return new Promise((resolve) => {
-      const t = setTimeout(resolve, 500); // (in case the transition never fires)
-      inkCover.addEventListener("transitionend", () => {
-        clearTimeout(t);
-        resolve();
-      }, { once: true });
-    });
-  }
 }

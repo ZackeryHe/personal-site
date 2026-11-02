@@ -3,18 +3,18 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // The greeting, in 3D, while the world is built behind it: you stand low in a dim grey space,
 // soft bubbles drifting up past you, looking up at a great brush hanging overhead (a glass
-// handle, a stone ferrule, and bristles soaked with ink halfway up). A drop of ink gathers at its tip as the
-// world loads. When you begin, the drop lets go and falls straight down, and you sink after it,
-// down into the dark, until the ink takes your view (and the world opens out of it: app/loader.js).
+// handle, a stone ferrule, and bristles soaked with ink halfway up). A drop of ink gathers at
+// its tip as the world loads. When you begin, it lets go and falls straight down into a scroll
+// lying unrolled below, your eyes following it down. Where it lands, the world itself paints
+// itself out over the scroll, and you come down over it until it fills your view: then it is
+// the world (main.js draws it live, into the scroll, from the moment the drop lands).
 
 const TIP = new THREE.Vector3(0, 2.5, -2.3); // the brush's tip, above and ahead of you
 const LOOK = new THREE.Vector3(0, 5.6, -3.2); // where you look while you wait (up the brush)
 const SIZE = 1.5; // how big the brush is (it should loom)
 const FALL_TIME = 1.1; // seconds from letting go to landing on the scroll
-const DIVE_TIME = 1.1; // ...then down into the scroll after it, until its paper is all you see
 const PAPER_Y = -7.5;  // the scroll lies unrolled down below, under the brush
 const SCROLL = { width: 9, depth: 2.9 }; // (a handscroll: long, and narrow)
-const DIVE_TO = 1.5;   // how high over the paper you come down to (it fills your view, the blot small in it)
 const DROP_R = [0.05, 0.17]; // the drop's radius: just a bead → full and heavy, as the world loads
 
 export function createGreeting(renderer) {
@@ -74,25 +74,62 @@ export function createGreeting(renderer) {
   // ---------- bubbles drifting up through the grey ----------
   const bubbles = makeBubbles(scene);
 
+  // ---------- the world, painting itself onto the scroll ----------
+  // Where the drop lands, the world (drawn live into worldTarget by main.js, its own first ink
+  // spreading from that same drop) spreads out over the scroll's paper with a ragged ink edge.
+  // It's a rectangle the shape of your screen; you come down over it, levelling out, until it
+  // fills your view exactly. Then it is just what the world draws on the screen, and the world
+  // can take over without a seam.
+  const worldTarget = new THREE.WebGLRenderTarget(1, 1);
+  const painting = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), // (uv up = -z: "up" as you'll look down on it)
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: { tWorld: { value: worldTarget.texture }, uSpread: { value: 0 }, uAspect: { value: 1 }, uMax: { value: 1 } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tWorld;
+        uniform float uSpread, uAspect, uMax;
+        varying vec2 vUv;
+        float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
+        }
+        void main() {
+          vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
+          float d = length(p) + (n(p * 5.0) - 0.5) * 0.22 + (n(p * 17.0) - 0.5) * 0.06; // (a ragged, inky edge)
+          float a = 1.0 - smoothstep(uSpread - 0.05, uSpread, d);
+          vec3 c = texture2D(tWorld, vUv).rgb;
+          float rim = exp(-pow((uSpread - d) / 0.035, 2.0)) * (1.0 - smoothstep(0.9, 1.0, uSpread / uMax)); // (ink pooled at its edge)
+          c = mix(c, vec3(0.05, 0.055, 0.07), rim * 0.55);
+          gl_FragColor = vec4(c, a);
+          #include <colorspace_fragment>
+        }
+      `,
+    }),
+  );
+  painting.renderOrder = 2;
+  painting.visible = false;
+  scene.add(painting);
+  const PAINT_H = 2; // how deep (m) the painting is on the scroll, once you look down on it
+  const SPREAD_TIME = 1.5; // seconds for it to spread from the drop out to the scroll's... your screen's edges
+
   // ---------- state ----------
   let progress = 0; // how much of the world is built (0–1): the drop swells with it
   let shown = 0;    // ...eased, so it swells smoothly
-  let falling = null; // { t, from, onCover, resolve } once it lets go
+  let falling = null; // { t, from, onLand, resolve, ... } once it lets go
   let running = false;
   let last = 0;
   const look = LOOK.clone();
   const dropPos = new THREE.Vector3();
-
-  /** Where the blot is on screen just now: { x, y, r } in CSS px. */
-  function blotOnScreen() {
-    const { center, radius } = scroll.blotWorld();
-    camera.updateMatrixWorld();
-    const c = center.clone().project(camera);
-    const edge = center.clone().add(new THREE.Vector3(radius, 0, 0)).project(camera);
-    const toPx = (v) => ({ x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight });
-    const a = toPx(c), b = toPx(edge);
-    return { x: a.x, y: a.y, r: Math.hypot(b.x - a.x, b.y - a.y) };
-  }
+  const qLook = new THREE.Quaternion();
+  const above = new THREE.PerspectiveCamera(); // where you end up: right over the painting, looking down on it (a camera: its lookAt faces it)
 
   function resize() {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -100,6 +137,10 @@ export function createGreeting(renderer) {
     // (on a tall phone screen, widen the view so the brush still fits)
     camera.fov = camera.aspect < 0.8 ? 70 : 55;
     camera.updateProjectionMatrix();
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    worldTarget.setSize(size.x, size.y);
+    painting.scale.set(PAINT_H * camera.aspect, 1, PAINT_H);
+    painting.material.uniforms.uAspect.value = camera.aspect;
   }
 
   function frame(now) {
@@ -116,6 +157,7 @@ export function createGreeting(renderer) {
     brush.updateMatrixWorld();
 
     const r = THREE.MathUtils.lerp(DROP_R[0], DROP_R[1], shown);
+    let settle = 0; // 0 → 1: how far you've come to rest right over the painting
     if (!falling) {
       // hanging from the tip (which sways with the brush), heavy, trembling as it fills
       dropPos.set(0, 0, 0).applyMatrix4(brush.matrixWorld);
@@ -124,57 +166,68 @@ export function createGreeting(renderer) {
       drop.scale.set(r / tremble, r * 1.12 * tremble, r / tremble);
     } else {
       // let go: it falls straight down, quickening, stretching as it goes, into the scroll
-      // below; you sink after it, eyes on it. It lands and spreads into the paper, and you
-      // carry on down into the scroll, until its paper is all you see
+      // below, and you sink after it, your eyes coming round to follow it down
       const t = (falling.t += dt);
       const k = Math.min(t / FALL_TIME, 1);
-      const land = PAPER_Y + r * 0.6;
       dropPos.copy(falling.from);
-      dropPos.y += (land - falling.from.y) * k * k;
+      dropPos.y += (PAPER_Y + r * 0.6 - falling.from.y) * k * k;
       brush.position.y = TIP.y + Math.sin(Math.min(t * 6, Math.PI)) * 0.08 * Math.exp(-t * 2); // (the brush springs up)
-      // (you: from where you stood, down to over the paper, looking down on the splash, until
-      // the paper fills your view; standing a little back from it, so you never look quite
-      // straight down)
-      const dive = Math.min(Math.max((t - FALL_TIME * 0.35) / (FALL_TIME * 0.65 + DIVE_TIME), 0), 1);
-      const e = dive * dive * (3 - 2 * dive);
-      falling.e = e;
-      const h = THREE.MathUtils.lerp(0, PAPER_Y + DIVE_TO, e); // (your height)
-      camera.position.set(dropPos.x * e, h, THREE.MathUtils.lerp(0, falling.from.z + 0.25, e));
       if (k < 1) {
         const stretch = 1 + 0.35 * Math.min(1, k * 2);
         drop.scale.set(r / Math.sqrt(stretch), r * stretch, r / Math.sqrt(stretch));
-      } else {
-        // landed: the drop is gone into the paper, and its ink spreads out there
+      } else if (!falling.landed) {
+        // landed: the drop is gone into the paper; the world starts there, and paints itself out
+        falling.landed = true;
         drop.visible = false;
-        scroll.splash(dropPos.x - scroll.group.position.x, dropPos.z - scroll.group.position.z, t - FALL_TIME);
+        painting.position.set(dropPos.x, PAPER_Y + 0.006, dropPos.z);
+        painting.visible = true;
+        above.position.set(dropPos.x, PAPER_Y + PAINT_H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))), dropPos.z);
+        above.up.set(0, 0, -1);
+        above.lookAt(painting.position);
+        falling.onLand(worldTarget);
       }
-      // nearly there: the paper fills your view (the page layer fades to the same paper, with
-      // the blot on it just where it is on screen: see blotOnScreen, below)
-      if (t > FALL_TIME + DIVE_TIME - 0.4 && falling.onCover) {
-        falling.onCover(blotOnScreen());
-        falling.onCover = null;
+      if (falling.landed) {
+        const age = t - FALL_TIME;
+        scroll.splash(dropPos.x - scroll.group.position.x, dropPos.z - scroll.group.position.z, age);
+        const s = Math.min(age / SPREAD_TIME, 1);
+        const max = Math.hypot(camera.aspect, 1) / 2 + 0.25; // (out past the corners, ragged edge and all)
+        painting.material.uniforms.uMax.value = max;
+        painting.material.uniforms.uSpread.value = (1 - Math.pow(1 - s, 2.2)) * max;
+        if (age > SPREAD_TIME && falling.resolve) {
+          falling.resolve();
+          falling.resolve = null;
+        }
       }
-      if (t > FALL_TIME + DIVE_TIME && falling.resolve) {
-        falling.resolve();
-        falling.resolve = null;
-      }
+      // you: down from where you stood to right over where it lands, and level out over the
+      // painting in the last part of the way
+      const dive = THREE.MathUtils.clamp((t - FALL_TIME * 0.25) / (FALL_TIME * 0.75 + SPREAD_TIME), 0, 1);
+      const e = dive * dive * (3 - 2 * dive);
+      const end = above.position.y ? above.position : new THREE.Vector3(falling.from.x, PAPER_Y + PAINT_H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))), falling.from.z);
+      camera.position.set(end.x * e, THREE.MathUtils.lerp(0, end.y, e), THREE.MathUtils.lerp(0, end.z, e));
+      settle = falling.landed ? THREE.MathUtils.smoothstep(dive, 0.45, 1) : 0;
     }
     drop.position.copy(dropPos);
 
-    // where you look: up the brush while you wait (drifting a touch), then after the drop
-    const want = falling ? dropPos : LOOK.clone().add(new THREE.Vector3(Math.sin(time * 0.2) * 0.15, Math.sin(time * 0.27) * 0.1, 0));
-    if (falling) look.copy(dropPos).setY(Math.min(dropPos.y, camera.position.y - 0.05)); // (your eyes stay on it)
-    else look.lerp(want, 1 - Math.exp(-dt * 2));
-    camera.lookAt(look);
+    // where you look: up the brush while you wait (drifting a touch); then your eyes come round
+    // to the drop and follow it down (quicker as it quickens, so it never gets away from you)
     if (falling) {
-      // ...and as you come down over the scroll, you frame it so the blot sits just where, on
-      // screen, the world's own first ink will spread from (falling.aim), so the one becomes the other
-      const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      camera.rotateX(Math.atan(-falling.aim.y * tanHalf) * falling.e);
-      camera.rotateY(Math.atan(falling.aim.x * tanHalf * camera.aspect) * falling.e);
+      look.lerp(dropPos, 1 - Math.exp(-dt * (4 + 30 * Math.min(falling.t / FALL_TIME, 1))));
+      // (and "up" turns, as you come to look down, from the sky to the far end of the scroll, so
+      // looking straight down never spins you round)
+      const turn = THREE.MathUtils.smoothstep(falling.t, FALL_TIME * 0.3, FALL_TIME);
+      camera.up.set(0, 1 - turn, -turn).normalize();
+    } else {
+      look.lerp(LOOK.clone().add(new THREE.Vector3(Math.sin(time * 0.2) * 0.15, Math.sin(time * 0.27) * 0.1, 0)), 1 - Math.exp(-dt * 2));
+    }
+    camera.lookAt(look);
+    if (settle > 0) {
+      // ...and you level out, right over the painting, till it fills your view
+      qLook.copy(camera.quaternion);
+      camera.quaternion.slerpQuaternions(qLook, above.quaternion, settle);
     }
 
     bubbles.update(dt, camera);
+    bubbles.fade(1 - settle); // (gone by the time you look down on the painting)
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
   }
@@ -197,18 +250,17 @@ export function createGreeting(renderer) {
       progress = Math.max(progress, Math.min(1, k));
     },
     /**
-     * Let the drop go. aim: where on screen (-1 → 1, as NDC) the world's first ink will spread
-     * from: the blot is framed there by the time the paper fills the view. onCover({ x, y, r }):
-     * called then, with where the blot is on screen (px; r: its radius), to cover it with the
-     * same paper and blot. Resolves once you're down over the paper.
+     * Let the drop go. onLand(target): called as it lands on the scroll: from then on, draw the
+     * world (live, its first ink landing just then) into target, and it paints itself out over
+     * the scroll from there. Resolves once it fills your view: the world can take the screen.
      */
-    fall(onCover = () => {}, aim = { x: 0, y: 0 }) {
+    fall(onLand = () => {}) {
       if (reduced) {
-        onCover(null);
+        onLand(null);
         return Promise.resolve();
       }
       return new Promise((resolve) => {
-        falling = { t: 0, e: 0, from: dropPos.clone(), aim, onCover, resolve };
+        falling = { t: 0, from: dropPos.clone(), landed: false, onLand, resolve };
       });
     },
     stop() {
@@ -225,6 +277,7 @@ export function createGreeting(renderer) {
       });
       scene.background?.dispose();
       scene.environment?.dispose();
+      worldTarget.dispose();
     },
   };
 }
@@ -507,6 +560,10 @@ function makeBubbles(scene) {
     list.push(b);
   }
   return {
+    /** k: 1 → 0, the bubbles fading away */
+    fade(k) {
+      crisp.opacity = soft.opacity = k;
+    },
     update(dt) {
       for (const b of list) {
         b.phase += dt;

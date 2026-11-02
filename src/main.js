@@ -94,6 +94,8 @@ async function boot() {
   const timer = new THREE.Timer();
   timer.connect(document); // pauses cleanly when the tab is hidden
   const clamp01 = (x) => THREE.MathUtils.clamp(x, 0, 1);
+  let worldOut = null;  // where the world draws: the screen, or (as it begins) into the greeting's scroll
+  let started = false;  // (its loop is running)
 
   function frame(timestamp) {
     timer.update(timestamp);
@@ -116,7 +118,7 @@ async function boot() {
     brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
     hint.update(ready && walked > 6 && walker.still > 0.6 && colour.blooms === 0 && walker.seated < 0.1, dt);
     keepsake.update(dt / warp);
-    post.render(scene, camera);
+    post.render(scene, camera, worldOut); // (into the greeting's scroll at first: see below)
     fps?.tick(timestamp);
     requestAnimationFrame(frame);
   }
@@ -134,19 +136,24 @@ async function boot() {
   greeting?.progress(1);
   if (skipGreeting) loader.dismiss();
   else {
-    // ...until you begin: the drop falls into the scroll and you follow it down over its paper,
-    // framing its blot just where the world's first ink will spread from (drops.js: 5 m ahead
-    // of you). Then the world starts beneath the paper at the moment that ink lands (its own
-    // falling drop skipped: the scroll's was it), and spreads out from under the blot as the
-    // paper clears
-    const spot = walker.point.clone().addScaledVector(walker.tangent, 5).project(camera);
-    await loader.ready({ fall: (onCover) => greeting.fall(onCover, { x: spot.x, y: spot.y }) });
+    // ...until you begin: the drop falls into the scroll. As it lands, the world starts, at the
+    // moment of its own first ink landing (its own falling drop skipped: the scroll's was it),
+    // drawn live into the scroll, where it paints itself out from the drop; and once you've come
+    // down over it till it fills your view, the world simply carries on, on the screen.
+    await loader.ready({
+      fall: () => greeting.fall((target) => {
+        globals.uTime.value = CONFIG.intro.blankPaper; // (the landing)
+        worldOut = target;
+        requestAnimationFrame(frame);
+        started = true;
+      }),
+    });
+    worldOut = null;
     greeting.dispose();
     resize();
-    globals.uTime.value = CONFIG.intro.blankPaper; // (the landing)
     loader.open();
   }
-  requestAnimationFrame(frame);
+  if (!started) requestAnimationFrame(frame);
 }
 
 /** A small frames-per-second readout, top right (averaged over half a second). */

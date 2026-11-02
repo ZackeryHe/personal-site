@@ -302,32 +302,6 @@ body.is-greeting::after { opacity: 0; }
 #loader.is-ready .loader-status { animation: status-breathe 2.8s ease-in-out infinite; }
 #loader.is-falling .loader-title { opacity: 0; }
 
-/* the paper: as you come down into the scroll its paper fills your view, and this same paper comes
-   up over it (greeting.js calls for it); the world, which starts as blank paper too, is beneath */
-@property --blot-r { /* (registered, so it can grow smoothly: the blot spreading out) */
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-.loader-ink {
-  position: absolute;
-  inset: 0;
-  /* the blot of ink the drop made, just where it is on screen (set from loader.js) */
-  --blot-x: 50%;
-  --blot-y: 50%;
-  --blot-r: 0px;
-  background:
-    radial-gradient(circle at var(--blot-x) var(--blot-y), rgba(12, 13, 16, 0.96) calc(var(--blot-r) * 0.8), rgba(12, 13, 16, 0) calc(var(--blot-r) * 1.15)),
-    var(--paper);
-  opacity: 0;
-  pointer-events: none;
-}
-#loader.is-covered .loader-ink { opacity: 1; transition: opacity 0.38s ease-in; }
-#loader.is-open { background: transparent; pointer-events: none; }
-/* the world's ink spreads out from beneath the blot as the paper clears: the blot spreads out too,
-   thinning into it (its radius is grown from loader.js) */
-#loader.is-open .loader-ink { opacity: 0; transition: opacity 1.3s ease-out, --blot-r 1.3s cubic-bezier(0.2, 0.6, 0.3, 1); }
-
 @keyframes status-breathe {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 0.4; }
