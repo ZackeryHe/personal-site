@@ -105,7 +105,7 @@ export function createUI({ onJump }) {
     .filter((p) => p.titleCard || p.body || p.id in STOPS)
     .map((p) => {
       if (!(p.id in STOPS)) console.warn(`content.js: point "${p.id}" has no stop in world/places.js`);
-      const station = { at: STOPS[p.id] ?? 0, label: p.label };
+      const station = { at: STOPS[p.id] ?? 0, label: p.label, later: p.panelLater || 0 };
       if (p.titleCard || p.body) {
         station.el = panelElement(p);
         container.appendChild(station.el);
@@ -135,7 +135,7 @@ export function createUI({ onJump }) {
     /** introText: 0 → 1 as the opening note first writes itself in */
     update(progress, introText) {
       for (const s of panels) {
-        let k = clamp01((1 - Math.abs(progress - s.at) / 0.07) * 1.6);
+        let k = clamp01((1 - Math.abs(progress - s.at - s.later) / 0.07) * 1.6);
         if (s === panels[0]) k = Math.min(k, introText); // the opening note waits for the first drop
         s.set(ease(k));
       }

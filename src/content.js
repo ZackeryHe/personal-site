@@ -13,11 +13,13 @@ export const SITE = {
   //   label:  the marker that floats beside it in the world, and its dot on the progress line
   //   href:   makes the marker a link
   //   body:   a panel of text that writes itself in when you arrive (HTML, so links work)
+  //   panelLater: shifts when the panel writes itself in, as a fraction of the walk (0.01 = a little later)
   points: [
     { id: "start", label: "Start", titleCard: true },
     // the lotus pond: a label over three carved rocks on its near shore (click them)
     {
       id: "contacts", label: "Contacts", zh: "联系",
+      panelLater: 0.015,
       body: '<a href="https://github.com/">GitHub</a> · <a href="https://www.linkedin.com/">LinkedIn</a> · <a href="mailto:hello@example.com">Email</a>',
     },
     { id: "github", label: "GitHub", href: "https://github.com/" },
