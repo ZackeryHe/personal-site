@@ -1,51 +1,102 @@
-// The greeting: while the world is built and its shaders compiled, a handscroll waits on the
-// table, ink drifting in its paper and a few drops of ink hanging in the air above it (all in
-// index.html + style.css, so it shows before any of this has loaded, and its animation runs on
-// the compositor while the page is busy). When it's ready you begin: the rollers part, the
-// scroll unrolls toward you until its blank paper fills the screen, and the first drop falls.
+import { SITE } from "../content.js";
+
+// The greeting: while the world is built and its shaders compiled, ink washes drift across the
+// paper, a brush hangs on its cord with a drop of ink gathering at its tip, and your name waits
+// where the title card will be (all in index.html + style.css, so it shows before any of this
+// has loaded, and its animation runs on the compositor while the page is busy).
+// Click anywhere (even before it's ready: it goes as soon as it is): the drop falls to exactly
+// where the world's first drop lands, and the world blooms from there as the greeting clears.
 
 export function createLoader() {
   const el = document.getElementById("loader");
   const status = el?.querySelector(".loader-status");
-  const begin = el?.querySelector(".loader-begin");
-  const paper = el?.querySelector(".loader-paper");
+  const drop = el?.querySelector(".loader-drop-body");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const touch = matchMedia("(pointer: coarse)").matches;
+  let wantsIn = false; // clicked while it was still getting ready
+  let ready = null;    // set once ready: go
+
+  if (el) {
+    // the name and seal come from content.js (index.html has them too, for the first moment)
+    el.querySelector(".loader-title h1").textContent = SITE.name;
+    el.querySelector(".loader-title .seal").textContent = SITE.initials;
+    const enter = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // (not an ink flick)
+      if (ready) ready();
+      else if (!wantsIn) {
+        wantsIn = true;
+        status.textContent = "a moment…";
+      }
+    };
+    el.addEventListener("click", enter);
+    el.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && enter(e));
+  }
+
+  /** The falling drop: a copy of the one at the tip, dropped to (x, y) on screen. */
+  function fall(to) {
+    const r = drop.getBoundingClientRect();
+    const copy = document.createElement("div");
+    copy.className = "loader-falling";
+    copy.style.width = `${r.width}px`;
+    copy.style.height = `${r.height}px`;
+    copy.style.left = `${r.left}px`;
+    copy.style.top = `${r.top}px`;
+    copy.appendChild(drop.querySelector("svg").cloneNode(true));
+    el.appendChild(copy);
+    el.classList.add("is-falling");
+    const dx = to.x - (r.left + r.width / 2);
+    const dy = to.y - (r.top + r.height);
+    const ms = Math.min(720, 260 + Math.sqrt(Math.max(dy, 0)) * 16); // further to fall, a little longer
+    const falling = copy.animate([
+      { transform: "translate(0, 0) scale(1, 1)" },
+      { transform: `translate(${dx * 0.3}px, ${dy * 0.18}px) scale(0.92, 1.22)`, offset: 0.4 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.8, 1.4)` },
+    ], { duration: ms, easing: "cubic-bezier(0.45, 0, 0.9, 0.55)", fill: "forwards" });
+    return falling.finished.then(() => {
+      copy.remove();
+      // the splash: a ring spreading out where it lands (the world's own ripple carries it on)
+      const ring = document.createElement("div");
+      ring.className = "loader-splash";
+      ring.style.left = `${to.x}px`;
+      ring.style.top = `${to.y}px`;
+      el.appendChild(ring);
+      ring.animate([
+        { transform: "scale(0.1)", opacity: 0.85 },
+        { transform: "scale(1.6)", opacity: 0 },
+      ], { duration: 900, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)", fill: "forwards" });
+    });
+  }
 
   return {
     /** Resolves once the greeting has had a chance to paint. */
     painted: () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30))),
 
-    /** Offer to begin; resolves when the visitor does, as the scroll's paper fills the screen. */
-    ready() {
+    /**
+     * Ready: wait for the visitor (or go at once, if they already clicked). Resolves as the drop
+     * lands. landAt() → { x, y }: where on screen the world's first drop will land.
+     */
+    ready({ landAt }) {
       if (!el) return Promise.resolve();
       el.classList.add("is-ready");
-      status.textContent = "the ink is ready";
-      begin.hidden = false;
-      begin.focus({ preventScroll: true });
+      el.removeAttribute("aria-busy");
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", `Begin: ${SITE.name}`);
+      el.tabIndex = 0;
+      el.focus({ preventScroll: true });
+      status.textContent = touch ? "tap anywhere to begin" : "click anywhere to begin";
       return new Promise((resolve) => {
         let gone = false;
-        const go = (e) => {
+        ready = async () => {
           if (gone) return;
           gone = true;
-          e?.preventDefault?.();
-          e?.stopPropagation?.(); // (not an ink flick)
-          removeEventListener("keydown", onKey);
-          begin.disabled = true;
-          // the paper grows from its size on the table to the whole screen
-          const r = paper.getBoundingClientRect();
-          el.style.setProperty("--to-x", (innerWidth / r.width) * 1.04);
-          el.style.setProperty("--to-y", (innerHeight / r.height) * 1.04);
-          el.style.setProperty("--shift-y", `${innerHeight / 2 - (r.top + r.height / 2)}px`);
-          el.classList.add("is-opening");
-          setTimeout(() => {
-            resolve();
-            el.classList.add("is-gone"); // then the scroll lifts away, leaving its paper: the world's
-            setTimeout(() => el.remove(), 900);
-          }, reduced ? 250 : 1250);
+          el.removeAttribute("role");
+          if (!reduced) await fall(landAt());
+          resolve();
+          el.classList.add("is-gone"); // the greeting clears, the world blooming beneath it
+          setTimeout(() => el.remove(), 1200);
         };
-        const onKey = (e) => (e.key === "Enter" || e.key === " ") && go(e);
-        begin.addEventListener("click", go);
-        addEventListener("keydown", onKey);
+        if (wantsIn) ready();
       });
     },
 

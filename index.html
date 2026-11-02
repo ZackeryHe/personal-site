@@ -12,21 +12,132 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-  <!-- The greeting while the world is built (src/app/loader.js): a handscroll on the table -->
-  <div id="loader">
-    <div class="loader-drops" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="loader-scroll" aria-hidden="true">
-      <span class="loader-roller loader-roller--left"></span>
-      <div class="loader-paper">
-        <span class="loader-ink loader-ink--a"></span>
-        <span class="loader-ink loader-ink--b"></span>
-        <span class="loader-ink loader-ink--c"></span>
-        <span class="loader-ink loader-ink--d"></span>
-      </div>
-      <span class="loader-roller loader-roller--right"></span>
+  <!-- The greeting while the world is built (src/app/loader.js): ink washes drifting on the
+       paper, a brush hanging on its cord with a drop of ink gathering at its tip, your name.
+       Click anywhere: the drop falls, and the world blooms from where it lands.
+       (The name here shows before any script has loaded: keep it in step with src/content.js.) -->
+  <div id="loader" aria-busy="true">
+    <div class="loader-wash loader-wash--a"></div>
+    <div class="loader-wash loader-wash--b"></div>
+    <div class="loader-wash loader-wash--c"></div>
+    <div class="loader-wash loader-wash--sun"></div>
+    <svg class="loader-sun" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="sun-wash" cx="0.46" cy="0.42" r="0.56">
+          <stop offset="0" stop-color="#e2774f" stop-opacity="0.34" />
+          <stop offset="0.72" stop-color="#cf5537" stop-opacity="0.42" />
+          <stop offset="0.93" stop-color="#b8392b" stop-opacity="0.58" />
+          <stop offset="1" stop-color="#b8392b" stop-opacity="0.3" />
+        </radialGradient>
+        <filter id="sun-wet" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="11" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d" />
+          <feGaussianBlur in="d" stdDeviation="0.5" />
+        </filter>
+      </defs>
+      <circle cx="50" cy="50" r="44" fill="url(#sun-wash)" filter="url(#sun-wet)" />
+    </svg>
+    <svg class="loader-ranges" viewBox="0 0 1600 300" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="loader-far" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5d6b78" stop-opacity="0.2" />
+          <stop offset="0.75" stop-color="#5d6b78" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="loader-near" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3f4b56" stop-opacity="0.17" />
+          <stop offset="0.8" stop-color="#3f4b56" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path class="loader-ridge loader-ridge--far" fill="url(#loader-far)"
+        d="M0 172 Q110 156 190 132 Q240 118 272 126 Q322 140 372 132 Q462 116 552 104 Q612 96 642 110 Q692 128 752 120 Q850 104 918 62 Q962 32 996 48 Q1036 70 1084 84 Q1134 94 1174 74 Q1214 56 1254 76 Q1312 100 1372 66 Q1414 44 1456 70 Q1526 108 1600 118 L1600 300 L0 300 Z" />
+      <path class="loader-ridge loader-ridge--near" fill="url(#loader-near)"
+        d="M0 230 Q136 212 252 216 Q372 220 462 196 Q534 178 594 196 Q684 222 796 214 Q896 206 972 180 Q1036 160 1098 186 Q1176 214 1286 204 Q1396 194 1478 212 Q1550 226 1600 220 L1600 300 L0 300 Z" />
+    </svg>
+    <div class="loader-grain"></div>
+
+    <!-- the brush: bamboo handle, horn cap, a red silk cord, bristles loaded with ink -->
+    <div class="loader-brush" aria-hidden="true">
+      <svg class="loader-brush-art" viewBox="0 0 100 640">
+        <defs>
+          <linearGradient id="brush-bamboo" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#5c4227" />
+            <stop offset="0.24" stop-color="#b9996a" />
+            <stop offset="0.46" stop-color="#e3d1a6" />
+            <stop offset="0.72" stop-color="#a98a59" />
+            <stop offset="1" stop-color="#4f3820" />
+          </linearGradient>
+          <linearGradient id="brush-horn" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#140f0b" />
+            <stop offset="0.45" stop-color="#4a3626" />
+            <stop offset="1" stop-color="#120d09" />
+          </linearGradient>
+          <linearGradient id="brush-hair" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ece4d2" />
+            <stop offset="0.1" stop-color="#d4c9b2" />
+            <stop offset="0.24" stop-color="#3a3d43" />
+            <stop offset="0.4" stop-color="#16191e" />
+            <stop offset="1" stop-color="#0c0e11" />
+          </linearGradient>
+          <linearGradient id="brush-hair-side" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#000" stop-opacity="0.45" />
+            <stop offset="0.35" stop-color="#000" stop-opacity="0" />
+            <stop offset="0.62" stop-color="#fff" stop-opacity="0.13" />
+            <stop offset="1" stop-color="#000" stop-opacity="0.4" />
+          </linearGradient>
+          <filter id="brush-rough" x="-20%" y="-5%" width="140%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n" />
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+        <!-- the silk cord it hangs by, and its loop -->
+        <path d="M50 -400 C49 -200 51.5 -40 50 30" stroke="#a7372c" stroke-width="1.5" fill="none" />
+        <path d="M45.5 46 C42 34 46 24 50 24 C54 24 58 34 54.5 46" stroke="#a7372c" stroke-width="1.7" fill="none" />
+        <g filter="url(#brush-rough)">
+          <!-- horn cap -->
+          <path d="M42 46 C42 40 58 40 58 46 L59 68 L41 68 Z" fill="url(#brush-horn)" />
+          <!-- bamboo handle, with two nodes -->
+          <rect x="42.5" y="66" width="15" height="356" fill="url(#brush-bamboo)" />
+          <path d="M46 70 V418 M51.5 70 V418 M55 70 V418" stroke="#5a4024" stroke-opacity="0.16" stroke-width="0.6" />
+          <rect x="41.6" y="180" width="16.8" height="4.2" rx="2" fill="#87673c" />
+          <rect x="42.5" y="184" width="15" height="1.2" fill="#f0e2bf" fill-opacity="0.5" />
+          <rect x="41.6" y="318" width="16.8" height="4.2" rx="2" fill="#87673c" />
+          <rect x="42.5" y="322" width="15" height="1.2" fill="#f0e2bf" fill-opacity="0.5" />
+          <!-- horn ferrule -->
+          <path d="M41.5 420 L58.5 420 L61 450 L39 450 Z" fill="url(#brush-horn)" />
+          <path d="M43 423 L44.5 447" stroke="#fff" stroke-opacity="0.12" stroke-width="1.2" />
+          <!-- the bristles: pale where they're dry, black with ink below -->
+          <path d="M39 450 C35 490 41 548 50 600 C59 548 65 490 61 450 Z" fill="url(#brush-hair)" />
+          <path d="M39 450 C35 490 41 548 50 600 C59 548 65 490 61 450 Z" fill="url(#brush-hair-side)" />
+          <path d="M42.5 455 C41.5 470 42 480 43.5 489 M47 453 C46.5 468 47 478 47.6 488 M52.5 453 C53 467 52.6 478 52 488 M57 456 C58 470 57.4 480 56 490"
+            stroke="#e9e1cf" stroke-opacity="0.55" stroke-width="0.7" fill="none" />
+          <path d="M45 492 C44 520 46 556 49.4 588" stroke="#fff" stroke-opacity="0.16" stroke-width="1.4" fill="none" />
+          <!-- ink outlines, broken like the world's: the handle, the ferrule, the bristles -->
+          <g fill="none" stroke="#1d2128" stroke-linecap="round" stroke-opacity="0.62" stroke-width="0.9">
+            <path d="M42.5 70 V176 M42.5 186 V314 M42.5 324 V420" />
+            <path d="M57.5 66 V178 M57.5 190 V316 M57.5 326 V420" stroke-opacity="0.4" />
+            <path d="M39 450 C35 490 41 548 50 600" />
+            <path d="M61 450 C65 490 59 548 51.5 592" stroke-opacity="0.45" />
+            <path d="M42 46 C42 40 58 40 58 46" />
+          </g>
+        </g>
+      </svg>
+      <!-- the drop gathering at the tip -->
+      <div class="loader-drop"><div class="loader-drop-swell"><div class="loader-drop-body">
+        <svg viewBox="0 0 26 34"><defs><radialGradient id="drop-glint" cx="0.36" cy="0.66" r="0.6">
+          <stop offset="0" stop-color="#3a4049" /><stop offset="0.35" stop-color="#151920" /><stop offset="1" stop-color="#0b0d11" />
+        </radialGradient></defs>
+          <path d="M13 0 C13 6 26 14 26 22 A13 12 0 0 1 0 22 C0 14 13 6 13 0 Z" fill="url(#drop-glint)" />
+          <ellipse cx="9" cy="24" rx="2.2" ry="3" fill="#fff" fill-opacity="0.32" />
+        </svg>
+      </div></div></div>
     </div>
-    <p class="loader-status" role="status">grinding the ink…</p>
-    <button class="loader-begin" type="button" hidden>unroll the scroll</button>
+
+    <!-- your name, set out exactly as the title card in the world (it carries on there) -->
+    <section class="station loader-title">
+      <div class="seal">ZH</div>
+      <h1>Zackery He</h1>
+      <p class="hint loader-status" role="status">grinding the ink…</p>
+    </section>
   </div>
 
   <canvas id="scene"></canvas>

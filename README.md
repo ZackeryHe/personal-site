@@ -18,7 +18,7 @@ Dev URL options (combine with `&`):
 | `?t=0.5` | start halfway along the path (0 = start, 1 = end) |
 | `?instant` | skip the greeting and the opening drop; ink has already spread around you |
 | `?inked` | ...and along the whole walk, as if you'd walked it (to see the painting at the end: `?t=1&inked`) |
-| `?go` | skip the greeting (the scroll you unroll), but keep the opening drop |
+| `?go` | skip the greeting (the brush and its drop), but keep the opening drop |
 | `?look=-0.6` | start with your head turned (negative = left), until you move the mouse |
 | `?warp=4` | run time 4× faster (testing blooms and other slow things) |
 | `?debug` | exposes `window.site` (walker, colour, drops, world, scene…) in the console; `site.world.built` holds each world module's state |
@@ -28,7 +28,9 @@ e.g. the koi pond: `?t=0.09&instant&look=-0.75`; the painting at the end: `?t=1&
 Controls: scroll / swipe / ↑↓ to walk, move the mouse to look, click the ground to flick ink,
 click the dots on the right to jump to a section. Stand still and you can turn your head much
 further; crane to the side and colour blooms where you look (see "The colour stage" below).
-The page opens on a handscroll while the world is built; unroll it and the first drop falls.
+The page opens on a greeting while the world is built (ink washes drifting on the paper, a brush
+hanging on its cord with a drop of ink gathering at its tip, your name): click anywhere and the
+drop falls, and the world blooms from where it lands, your name carrying on into it.
 Walk all the way to the end, up the stone steps onto the rim, and you sit down on the bench and
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
 colour where you stopped to look. It's the same view whichever way you were looking
@@ -53,7 +55,8 @@ src/
   content.js         your words
   config.js          the main settings
   app/
-    loader.js        the greeting while the world is built: a handscroll that unrolls into the page
+    loader.js        the greeting while the world is built (drawn in index.html + style.css): a brush
+                     whose drop falls into the world when you click
     walker.js        you: input, moving along the path, camera, standing still + craning,
                      a gentle nudge toward your points as you approach them; sitting at the end
                      and turning round to the painting

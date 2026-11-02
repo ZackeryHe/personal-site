@@ -100,7 +100,8 @@ async function boot() {
     world.update(now, camera);
 
     walked += Math.abs(walker.speed) * dt;
-    ui.update(walker.progress, clamp01((now - 0.3) / 1.4));
+    // your name writes itself in (unless the greeting has already set it there: it carries on)
+    ui.update(walker.progress, skipGreeting ? clamp01((now - 0.3) / 1.4) : 1);
     markers.update(camera, drops.introStart === null ? 0 : clamp01((now - drops.introStart) / 2));
     picker.update();
     brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
@@ -116,6 +117,16 @@ async function boot() {
   await renderer.compileAsync?.(scene, camera);
   post.render(scene, camera);
   if (skipGreeting) loader.dismiss();
-  else await loader.ready(); // ...until you begin: the scroll unrolls, its paper fills the screen
+  else {
+    // ...until you begin: the greeting's drop falls to just where the world's first drop lands
+    const spot = new THREE.Vector3();
+    await loader.ready({
+      landAt: () => {
+        spot.copy(walker.point).addScaledVector(walker.tangent, 5).project(camera);
+        return { x: (spot.x * 0.5 + 0.5) * innerWidth, y: (-spot.y * 0.5 + 0.5) * innerHeight };
+      },
+    });
+    globals.uTime.value = CONFIG.intro.blankPaper - 0.001; // ...and it lands there at once
+  }
   requestAnimationFrame(frame);
 }
