@@ -435,7 +435,7 @@ export function build({ scene, P, places }) {
       minFar: 0.15, density: 1, sil: 0, tint: "none", sketch: false, side: THREE.DoubleSide, glow: 0.9,
     })
   );
-  seaMesh.position.copy(end).addScaledVector(P.endDir, 4 + 450).setY(sea); // from the brink outward
+  seaMesh.position.copy(P.brink).addScaledVector(P.endDir, 450).setY(sea); // from the brink outward
   seaMesh.rotation.y = Math.atan2(P.endDir.x, P.endDir.z);
   scene.add(seaMesh);
 

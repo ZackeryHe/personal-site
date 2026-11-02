@@ -27,18 +27,14 @@ export function createDrops({ field, scene, camera, walker, world, instant = fal
   // click / tap anywhere on the ground to flick ink there
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
-  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const hit = new THREE.Vector3();
   addEventListener("click", (e) => {
     if (introStart === null) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    ground.constant = -world.groundAt(camera.position.x, camera.position.z);
-    for (let k = 0; k < 3; k++) {
-      if (!ray.ray.intersectPlane(ground, hit)) return; // clicked the sky
-      ground.constant = -world.groundAt(hit.x, hit.z);  // ...then the ground's height there
-    }
-    if (hit.distanceTo(camera.position) > 160) return;
+    // where the click meets the ground, however the land rises and falls (null: the sky, or
+    // out over the canyon)
+    if (!world.raycastGround(ray.ray.origin, ray.ray.direction, 160, hit)) return;
     land(hit.x, hit.z, C.flick, "flick");
     onFlick?.(hit.x, hit.z, e);
   });

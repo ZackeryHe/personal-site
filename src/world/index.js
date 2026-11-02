@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { makePath, RIM } from "./path.js";
+import { makePath, LAND } from "./path.js";
 import { globals } from "../ink/material.js";
 import { planPlaces, MARKERS } from "./places.js";
 import { rng } from "./random.js";
@@ -44,7 +44,7 @@ export function buildWorld(scene) {
   const P = makePath();
   // the shaders know the lie of the land too (ink climbs things from the ground they stand on)
   globals.uLand.value.set(P.brink.x, P.brink.z, P.endDir.x, P.endDir.z);
-  globals.uLandHeight.value = RIM;
+  globals.uLandHeight.value = LAND.rim;
   const places = planPlaces(P); // first, so scattered trees / grass keep out of reserved spots
   const ctx = { scene, P, places, rng };
 

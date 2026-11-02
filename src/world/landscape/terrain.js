@@ -17,8 +17,13 @@ export function build({ scene, P, places, rng }) {
   const ALONG = 900;
   const COLS = 240;
   {
-    const ROWS = 64;
-    const INLAND = 650;
+    // inland from the edge: every 0.35 m across the rise to the rim (the crest, the brow, the face
+    // and its foot), then further and further apart out to 650 m
+    const inland = [];
+    for (let d = 0; d < 40; d += 0.35) inland.push(d);
+    for (let d = 40; d < 650; d *= 1.09) inland.push(d);
+    inland.push(650);
+    const ROWS = inland.length - 1;
     const positions = [];
     const uvs = [];
     const index = [];
@@ -26,10 +31,9 @@ export function build({ scene, P, places, rng }) {
     for (let i = 0; i <= COLS; i++) {
       const u = -ALONG / 2 + (i / COLS) * ALONG;
       for (let j = 0; j <= ROWS; j++) {
-        const v = j / ROWS;
-        edgeAt(u, p).addScaledVector(P.endDir, -INLAND * Math.pow(v, 2.2));
+        edgeAt(u, p).addScaledVector(P.endDir, -inland[j]);
         positions.push(p.x, P.groundAt(p.x, p.z), p.z);
-        uvs.push(i / COLS, v);
+        uvs.push(i / COLS, inland[j] / 650);
       }
     }
     for (let i = 0; i < COLS; i++) {

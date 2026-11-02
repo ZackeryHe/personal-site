@@ -19,6 +19,7 @@ export const CONFIG = {
     lookPitch: 4,
     lookPitchStill: 6,
     lookUp: 0.8,      // resting gaze tilt (metres up at 10 m ahead): more sky + mountains, less ground
+    climbLook: 0.55,  // on the stairs, how far up them you look (0: straight ahead into the rock)
     bob: 0.04,        // footstep bob
     stillAfter: 0.25, // seconds after you last scrolled...
     stillSlack: 0.8,  // ...and within this many metres of gliding to a halt, you're standing still
@@ -27,6 +28,7 @@ export const CONFIG = {
     craneRoll: 0.06,  // head tilt when craning (radians)
     nudgeEase: 1.2,   // how gently your head turns toward a point as you approach (lower = gentler)
     sitHeight: 1.15,  // eye height on the bench at the end
+    sitLean: 0.5,     // ...leaning this far toward what you look at (m)
     sitEase: 1.2,     // how slowly you sit down (lower = slower)
     frameEase: 0.6,   // how slowly the view settles into the painting's framing once you're sitting
     // (sitting, you turn round to the painting's view: see places.painting in src/world/places.js)
@@ -37,6 +39,7 @@ export const CONFIG = {
     crane: 0.3,          // how far you need to turn (0–1) for colour to start coming in
     fill: 2,             // seconds of looking for a bloom to come in fully (it starts faint)
     gazeRange: [3, 32],  // metres: where on the ground your gaze can land (looking down)
+    seatedGaze: 170,     // ...and how far out, sitting up on the rim looking over the valley
     levelGaze: 11,       // metres out a bloom lands when you're looking level or up
     spacing: 4.5,        // turn your gaze further than this and a new bloom starts there
     reach: [14, 95],     // metres: near things (plants, rocks, water), far things (mountains)

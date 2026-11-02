@@ -69,7 +69,7 @@ async function boot() {
   const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
   const hint = createHint(SITE.stillHint);
   const keepsake = createKeepsake({ renderer, scene, camera, walker }); // the views from the bench, to keep
-  if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake }; // poke around in the console
+  if (params.has("debug")) window.site = { walker, drops, colour, world, globals, camera, scene, keepsake, field }; // poke around in the console
   let walked = 0; // metres, so the hint waits until you've had a wander
 
   // ---------- Loop ----------

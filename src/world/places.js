@@ -85,12 +85,12 @@ export function planPlaces(P) {
     // ---------- spectacles ----------
     pagoda: { pos: V(6, 0, -103), r: 8, h: 9, tiers: 5 }, // on a knoll: ahead as you cross the bridge
     // the end: a lone pine on the brink, the sun and the geese out over the canyon
-    pine: { pos: ahead(3.0, -8), faces: ahead(40, -16) },
+    pine: { pos: ahead(1.2, -8), faces: ahead(40, -16) },
     geese: { pos: V(), center: ahead(240, 0).setY(38 + rim), radii: [150, 45], period: 80 },
     sun: { pos: ahead(720, 0).setY(118 + rim), r: 86 }, // setting, low over the far end of the canyon
     // a stone bench right at the brink: sit, and look (keepClear: no flowers or petals within
     // this many metres)
-    bench: { pos: ahead(2.6, 0), keepClear: 12 },
+    bench: { pos: ahead(1.15, 0), keepClear: 12 },
     temple: { pos: V() },                     // on top of one of the canyon's pillars (spectacles/vista.js)
   };
   places.bench.pos.y = P.groundAt(places.bench.pos.x, places.bench.pos.z);
@@ -143,11 +143,8 @@ export function planPlaces(P) {
       return eye.clone().setY(0).addScaledVector(facing, Math.cos(a) * dist).addScaledVector(r, Math.sin(a) * dist);
     },
   };
-  // an old pine on the slope below the bench frames the painting's foreground on the right
-  // (none on the left: it would stand beside the stairs, in the middle of the climb)
-  places.painting.frame = [
-    { pos: places.painting.toward(37, 17), h: 7 },
-  ];
+  // (no pines framing it: below the bench the rim drops away in a steep rock face)
+  places.painting.frame = [];
   // scholar's rocks: around the pond, by the entrance, before the pavilion
   const pond = places.pond;
   const toPath = P.at(T(0.13)).sub(pond.pos).normalize();
@@ -202,6 +199,14 @@ export function planPlaces(P) {
   const len = toFalls.length();
   toFalls.normalize();
   for (let d = 10; d < len - places.waterfall.r; d += 8) r(from.clone().addScaledVector(toFalls, d), 10, { trees: false });
+  // nothing standing straight behind the waterfall's mountain, as you see it from the lookout or
+  // from the pavilion: it stands alone against the pale far ranges
+  for (const from of [places.bench.pos, view]) {
+    const away = places.waterfall.pos.clone().sub(from).setY(0).normalize();
+    for (let d = places.waterfall.r * 0.6; d < 240; d += 9) {
+      r(places.waterfall.pos.clone().addScaledVector(away, d), 4 + d * 0.12, { trees: false });
+    }
+  }
   // ...and the painting's view back from the lookout: no random mountain anywhere in it, and no
   // trees in the middle of its foreground (a few at the sides frame it)
   for (let d = 10; d < 150; d += 7) {

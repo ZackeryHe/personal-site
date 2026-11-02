@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { noise3 } from "./noise.js";
-import { RISE } from "../world/path.js";
+import { LAND } from "../world/path.js";
 
 export const PAPER = new THREE.Color("#efe7d6");
 export const INK = new THREE.Color("#161a21");
@@ -42,6 +42,7 @@ export const globals = {
   // the land rising to the canyon's rim (path.js groundAt): the brink (x, z), the way to the
   // canyon (x, z), and how high the rim rises. Ink climbs objects from the ground they stand on.
   uAtmScale: { value: 1 },  // pushes the atmospheric fade further off (the painting at the end: app/walker.js)
+  uSoft: { value: 0 },      // 0 → 1: seated at the lookout, distant trees soften (ink/post.js)
   uLand: { value: new THREE.Vector4(0, -1e5, 0, -1) },
   uLandHeight: { value: 0 },
   uSunGlow: { value: SUN_GLOW },
@@ -53,16 +54,26 @@ const CHANNELS = {
   ground: new THREE.Vector4(0, 0, 1, 0),
 };
 
-// the height of the ground under x, z: the same as path.js groundAt (RISE, roll)
+// the height of the ground under x, z: the same as path.js groundAt (LAND, roll)
+const f = (x) => x.toFixed(4);
 const landGLSL = /* glsl */ `
   uniform vec4 uLand;        // the brink (x, z), the way out over the canyon (x, z)
   uniform float uLandHeight; // how high the rim rises
+  float landProfile(float d) {
+    if (d <= ${f(LAND.base)}) return 0.0;
+    float foot = smoothstep(${f(LAND.base)}, ${f(LAND.foot)}, d);
+    float s = max(0.0, (d - ${f(LAND.foot)}) / ${f(LAND.brow - LAND.foot)});
+    float a = pow(s, ${f(LAND.steep)});
+    float h = max(${f(LAND.round)} - abs(a - 1.0), 0.0) / ${f(LAND.round)};
+    float face = min(a, 1.0) - h * h * ${f(LAND.round)} * 0.25;
+    return ${f(LAND.footShare)} * foot + ${f(1 - LAND.footShare)} * face;
+  }
   float groundAt(vec2 p) {
     vec2 rel = p - uLand.xy;
     float d = dot(rel, uLand.zw);
     float lat = dot(rel, vec2(-uLand.w, uLand.z));
     float roll = 1.0 + 0.22 * (sin(lat * 0.045 + 0.7) - sin(0.7)) + 0.1 * (sin(lat * 0.11 + 2.1) - sin(2.1));
-    return uLandHeight * roll * smoothstep(${RISE[0].toFixed(1)}, ${RISE[1].toFixed(1)}, d);
+    return uLandHeight * roll * landProfile(d);
   }
 `;
 
@@ -122,7 +133,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uTintWash, uTintInk;
   uniform float uTint;
   uniform vec3 uSun, uSunGlow;
-  uniform float uGlow;
+  uniform float uGlow, uSoftObj;
   uniform float uAtmScale;
   ${landGLSL}
   #ifdef DECAL
@@ -221,6 +232,7 @@ const fragmentShader = /* glsl */ `
       ink += dots * uDots * wet;
     }
 
+  float rockInk = 0.0; // (ground: where it's steep enough to be rock)
   #ifdef GROUND
     {
       // a light wash at your feet: darker while wet, drying to a faint stain,
@@ -228,9 +240,14 @@ const fragmentShader = /* glsl */ `
       float wetness = field.w;
       float stainTex = mix(0.6, 1.0, fbm3(vec3(vWorld.x, 0.0, vWorld.z) * uGrain));
       ink = stainTex * wet * mix(0.22, 1.0, wetness) + rim * uRim * mix(0.35, 1.0, wetness);
-      // where it's steep (the face up to the rim) it's rock: firm strokes, not a wash
-      float steep = 1.0 - smoothstep(0.4, 0.8, N.y);
-      ink += steep * wet * (0.3 + 0.7 * fbm3(vec3(vWorld.x * 0.6, vWorld.y * 0.15, vWorld.z * 0.6))) * 3.2;
+      // where it's steep (the face up to the rim) it's rock: firm hemp-fibre strokes running down
+      // it (披麻皴), not the ground's pale wash (added after it, below: it carries a long way)
+      float steep = 1.0 - smoothstep(0.72, 0.95, N.y);
+      float fibres = fbm3(vec3(vWorld.x * 0.9, vWorld.y * 0.08, vWorld.z * 0.9));
+      float strata = smoothstep(0.55, 0.8, fbm3lo(vec3(vWorld.x * 0.05, vWorld.y * 0.6, vWorld.z * 0.05)));
+      // (inked as far out as the trees and rocks are, not just the ground's wash at your feet)
+      float rockWet = smoothstep(-0.03, 0.03, field.x + (blot - 0.5) * 0.3);
+      rockInk = steep * rockWet * (0.18 + 0.5 * fibres + 0.3 * strata);
       // ripple where a drop just landed
       float age = uTime - uLastDrop.z;
       if (age > 0.0 && age < 3.0) {
@@ -320,6 +337,9 @@ const fragmentShader = /* glsl */ `
   #endif
 
     ink *= uDensity * mix(1.0, uMinFar, atm) * air;
+    // (the rock strokes fade with distance the way the mountains do, not like the ground's wash)
+    float rockFar = smoothstep(30.0, 300.0, dist);
+    rockInk *= mix(1.0, 0.35, rockFar);
 
     // light colour washes (浅绛): ochre on lit faces, indigo in shadow
     vec3 washCol = mix(uIndigo, uOchre, smoothstep(0.35, 0.75, lit));
@@ -341,13 +361,16 @@ const fragmentShader = /* glsl */ `
       base = mix(base, uSunGlow, pow(toward, 24.0) * uGlow);
     }
 
-    // alpha flags for the watercolour pass: 1 = inked object, 0 = ground/sky (no outline)
+    // alpha flags for the watercolour pass: 1 = inked object, 0 = ground/sky (no outline),
+    // 0.88 = an inked object that softens when you sit at the lookout (trees, bamboo)
   #ifdef GROUND
     float flag = 0.0;
   #else
-    float flag = 1.0;
+    float flag = uSoftObj > 0.5 ? 0.88 : 1.0;
   #endif
-    gl_FragColor = vec4(mix(base, inkCol, clamp(ink, 0.0, 1.0)), flag);
+    vec3 col = mix(base, inkCol, clamp(ink, 0.0, 1.0));
+    if (rockInk > 0.0) col = mix(col, mix(uInk, uFarTint, rockFar), clamp(rockInk, 0.0, 1.0));
+    gl_FragColor = vec4(col, flag);
   }
 `;
 
@@ -371,6 +394,7 @@ export function inkMaterial({
   sketch = true,              // line-drawn (白描) before the ink arrives; ignored for global/ground
   wiggle = 0, holes = 0,      // swimming koi; scholar's-rock holes
   glow = 0,                   // how much the setting sun warms its paper when you look toward the sun
+  soft = false,               // fine detail (trees, bamboo) that softens when you sit at the lookout (ink/post.js)
   washLit = null, washShade = null, // per-material colour wash (default ochre / indigo)
   map = null,                 // alpha texture for variant "decal"
   // colour stage: a TINTS name ("foliage", "mountain", ...), "none", or { wash, ink, amount }.
@@ -418,6 +442,7 @@ export function inkMaterial({
       uWiggle: { value: wiggle },
       uHoles: { value: holes },
       uGlow: { value: glow },
+      uSoftObj: { value: soft ? 1 : 0 },
       ...(washLit ? { uOchre: { value: washLit } } : {}),
       ...(washShade ? { uIndigo: { value: washShade } } : {}),
       ...(map ? { uMap: { value: map } } : {}),

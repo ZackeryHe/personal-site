@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { noise2 } from "./noise.js";
-import { PAPER, INK } from "./material.js";
+import { PAPER, INK, globals } from "./material.js";
 
 // Full-screen watercolor pass. The scene is rendered to a texture first, then
 // this shader repaints it: wobbly hand-drawn edges, pigment pooling at the
@@ -16,6 +16,7 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D tDepth;
   uniform vec2 uRes;
   uniform float uNear, uFar;
+  uniform float uSoft; // 0 → 1: sitting at the lookout, the distant trees soften
   uniform vec3 uPaper, uInk, uSketchCol;
   varying vec2 vUv;
   ${noise2}
@@ -37,6 +38,26 @@ const fragmentShader = /* glsl */ `
 
     vec3 col = texture2D(tColor, uv).rgb;
     float d = darkAt(uv);
+
+    // 0. Seated at the lookout, the trees and bamboo down in the valley go soft: blurred where
+    // they are (and just round them, so their outlines soften too), from about 20 m off
+    float softened = 0.0;
+    if (uSoft > 0.001) {
+      vec3 acc = vec3(0.0);
+      float mask = 0.0;
+      float r = 2.6 * uRes.y / 900.0;
+      for (int i = 0; i < 12; i++) {
+        float a = float(i) * 2.39996; // golden angle
+        vec2 tuv = uv + vec2(cos(a), sin(a)) * sqrt((float(i) + 0.5) / 12.0) * r * px;
+        vec4 t = texture2D(tColor, tuv);
+        acc += t.rgb;
+        mask += step(0.82, t.a) * step(t.a, 0.94) * smoothstep(16.0, 34.0, 1.0 / invDepth(tuv));
+      }
+      float here = texture2D(tColor, uv).a;
+      float self = step(0.82, here) * step(here, 0.94) * smoothstep(16.0, 34.0, 1.0 / invDepth(uv));
+      softened = clamp(max(self, mask / 12.0 * 1.6), 0.0, 1.0) * uSoft;
+      col = mix(col, acc / 12.0, softened);
+    }
 
     // 2. Edge darkening: pigment pools where a wash meets lighter paper
     float blur = 0.0;
@@ -70,6 +91,8 @@ const fragmentShader = /* glsl */ `
     float sketch = edge * sk * (1.0 - inkGate) * mix(0.15, 1.0, dash)
                  * (1.0 - smoothstep(28.0, 45.0, dist));
 
+    line *= 1.0 - softened * 0.85; // (softened: no crisp outlines or pooled edges)
+    pool *= 1.0 - softened * 0.6;
     vec3 c = mix(col, uInk, clamp(pool * 0.35 + line * 0.75, 0.0, 0.9));
     c = mix(c, uSketchCol, sketch * 0.7);
 
@@ -118,6 +141,7 @@ export class WatercolorPass {
         uPaper: { value: PAPER },
         uInk: { value: INK },
         uSketchCol: { value: new THREE.Color("#6e5d4a") }, // light sepia underdrawing
+        uSoft: globals.uSoft, // (shared: set by app/walker.js as you sit)
       },
     });
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);

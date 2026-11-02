@@ -56,9 +56,12 @@ stopped to look.
    its open front framing the waterfall.
 6. **The waterfall**: it pours down a ravine into a pool, mist billowing up where it lands;
    cranes wade in the shallows, a fisherman drifts on the pool, deer graze by its stream, which
-   runs under a stone arch bridge, the pagoda on its knoll beyond. Then across the meadows and up
-   stone steps cut into the face of a ridge.
-7. **The end: nothing built but a stone bench, on the rim, right at the edge.** The land stops
+   runs under a stone arch bridge, the pagoda on its knoll beyond. Then across the meadows to the
+   foot of a rock escarpment, and up a sky ladder (天梯) of stone steps cut straight up its face,
+   steeper and steeper, to the rim.
+7. **The end: nothing built but a stone bench, on a narrow crest high on the rim, right at the
+   edge.** The crest is narrow and the face below it steep, so that sitting there you look over
+   its brow straight down into the valley and see none of the climb. The land stops
    at a cliff with a lone pine on the brink; no flowers grow and no petals fall around the
    bench, so it's just you and the view. Below, a canyon that is a forest of stone: sheer towers rising out of
    a sea of cloud (云海) that you look down onto, their feet lost in billowing cloud, their

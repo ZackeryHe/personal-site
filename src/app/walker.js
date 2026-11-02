@@ -6,7 +6,7 @@ import { globals } from "../ink/material.js";
 // head. As you approach one of your points, your head is nudged gently toward it.
 // Stop, and you can crane right round.
 export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
-  const { path, pathLen, heightAt, markers, bench, painting, groundAt, endDir } = world;
+  const { path, pathLen, heightAt, markers, bench, painting, groundAt, raycastGround, endDir } = world;
   const W = CONFIG.walk;
   const { lerp, smoothstep, clamp } = THREE.MathUtils;
   const clamp01 = (x) => clamp(x, 0, 1);
@@ -21,6 +21,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
   let seated = 0;    // 0 standing → 1 sitting on the bench at the end
   let anchor = null; // where the mouse was as you sat down: seated, you look around from there
   let framing = 0;   // 0 → 1: the painter's framing (a longer lens, a clearer distance), eased
+  let climbing = 0;  // how steeply the way ahead rises (eased): you look up the steps as you climb
   const mouse = { x: startLook, y: 0, sx: startLook, sy: 0 };
   let movedAt = 0;  // when the pointer last moved (ms)
   let held = null;  // a gaze to hold the view at, whatever the pointer does (see hold())
@@ -119,24 +120,21 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       walkedAt = performance.now();
     },
 
-    /** Where your gaze meets the ground (clamped to CONFIG.colour.gazeRange). */
+    /**
+     * Where your gaze meets the ground: within CONFIG.colour.gazeRange (sitting up on the rim,
+     * right out across the valley below), or a comfortable spot out that way if it's further.
+     */
     gazePoint(out) {
       const [near, far] = CONFIG.colour.gazeRange;
+      const reach = lerp(far, CONFIG.colour.seatedGaze, seated);
       camera.getWorldDirection(fwd);
-      const above = camera.position.y - groundAt(camera.position.x, camera.position.z);
-      if (fwd.y < -0.03) {
-        const t = above / -fwd.y;
-        if (t >= near && t <= far) {
-          out.copy(camera.position).addScaledVector(fwd, t);
-          return out.setY(groundAt(out.x, out.z));
-        }
-      }
-      // looking level or up (e.g. at the mountains): a spot a comfortable distance out in
-      // that direction, close enough to watch the flowers come up
-      const t = fwd.y < -0.03 ? clamp(above / -fwd.y, near, far) : CONFIG.colour.levelGaze;
+      const hit = raycastGround(camera.position, fwd, reach, out);
+      if (hit && hit.distanceTo(camera.position) >= near) return hit;
+      // looking level or up (e.g. at the mountains), or at the ground at your feet: a spot a
+      // comfortable distance out that way, close enough to watch the flowers come up
       fwd.y = 0;
       fwd.normalize();
-      out.copy(camera.position).addScaledVector(fwd, t);
+      out.copy(camera.position).addScaledVector(fwd, hit ? near : CONFIG.colour.levelGaze);
       return out.setY(groundAt(out.x, out.z));
     },
 
@@ -186,7 +184,11 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
       nudge += (nudgeTarget() * (1 - sit) - nudge) * Math.min(1, dt * W.nudgeEase);
       // walking: the path ahead, your head turned by the mouse (and nudged toward your points)
       let yaw = nudge - shaped(mouse.sx) * lerp(W.lookYaw, W.lookYawStill, still);
-      let lookY = -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp;
+      // climbing, you look up the steps ahead rather than into the rock in front of you
+      const ahead = Math.min(1, progress + 2.5 / pathLen);
+      const rise = ahead > progress ? (heightAt(ahead) - heightAt(progress)) / ((ahead - progress) * pathLen) : 0;
+      climbing += (Math.max(0, rise) - climbing) * Math.min(1, dt * 3);
+      let lookY = -mouse.sy * lerp(W.lookPitch, W.lookPitchStill, still) + W.lookUp + climbing * 10 * W.climbLook;
       if (sit > 0) {
         // seated, you turn round to the painting, the same view wherever you were looking; from
         // there the mouse looks around. Either edge of the screen turns you right round to face
@@ -204,8 +206,10 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
 
       camera.position.set(point.x, W.eyeHeight + heightAt(progress) + bob, point.z);
       if (sit > 0) {
-        camera.position.x = lerp(camera.position.x, bench.x, sit);
-        camera.position.z = lerp(camera.position.z, bench.z, sit);
+        // on the bench, leaning a little toward whatever you look at (so the seat you're sitting
+        // on isn't spread across the foot of the view)
+        camera.position.x = lerp(camera.position.x, bench.x + dir.x * W.sitLean, sit);
+        camera.position.z = lerp(camera.position.z, bench.z + dir.z * W.sitLean, sit);
         camera.position.y = lerp(camera.position.y, bench.y + W.sitHeight, sit);
       }
       // craning: your head leans out toward the side you're looking
@@ -227,6 +231,7 @@ export function createWalker({ camera, world, startT = 0, startLook = 0 }) {
         }
         globals.uAtmScale.value = lerp(1, painting.clarity, k);
       }
+      globals.uSoft.value = sit; // seated, the distant trees soften (ink/post.js)
     },
   };
 }

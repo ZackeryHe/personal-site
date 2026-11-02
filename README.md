@@ -31,21 +31,23 @@ further; crane to the side and colour blooms where you look (see "The colour sta
 The page opens on a greeting while the world is built (ink washes drifting on the paper, a brush
 hanging on its cord with a drop of ink gathering at its tip, your name): click anywhere and the
 drop falls, and the world blooms from where it lands, your name carrying on into it.
-Walk all the way to the end, up the stone steps onto the rim, and you sit down on the bench and
+Walk all the way to the end, up the steep stone steps onto the rim (the land's shape: `LAND` in
+`world/path.js`), and you sit down on the bench and
 turn round to *the painting*: the whole walk laid out below you, with the ink you left and the
 colour where you stopped to look. It's the same view whichever way you were looking
 (`places.painting` in `world/places.js`); move the mouse to look around (right round to the
 canyon at the edges of the screen). Any view from the bench is yours to keep: rest your eyes on
 one and it's framed (ink corner marks show it); hover "Copy this view" and you're turned back to
 it, and one click (or S) puts it on your clipboard, rendered afresh with a seal and a line of
-colophon (`app/keepsake.js`).
+colophon (`app/keepsake.js`). Sitting there, the trees and bamboo down in the valley go soft
+(`ink/post.js`): a lot of fine detail otherwise.
 
 ## Where to edit what
 
 | To change… | Edit |
 |---|---|
 | **What it says**: your name, your points (Contacts: GitHub, LinkedIn, Email; Experience, Projects, Resume): labels, links, panel text (HTML ok) | `src/content.js` |
-| **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `RIM`, `RISE`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
+| **Where things are**: the path's shape and the rim it climbs (`world/path.js`: `LAND`, `BRINK`), each point's stop + marker, garden spots, spectacles, the sun, the painting's view | `src/world/places.js` |
 | **How it feels**: ink speed/reach, sketch distance, scroll speed, how soon you settle into standing still (`walk.stillAfter`, `stillSlack`, `stillEase`), intro timing, the colour stage | `src/config.js` |
 | Colours, fonts, overlay layout | `src/style.css`, top of `src/ink/material.js` |
 
@@ -79,7 +81,8 @@ src/
     index.js         builds the world from a list of modules (add new ones here)
     places.js        where everything is: stops, markers for your points, scenery
     path.js          the walk's curve + helpers (at(t, side), heightAt, the land rising to the rim
-                     (groundAt), the cliff, keepOnLand, reserve/blocked)
+                     (groundAt, mirrored in ink/material.js), raycastGround (where a click or your
+                     gaze meets it), the cliff, keepOnLand, reserve/blocked)
     landscape/       terrain (the ground, rising to the rim and ending at its cliff; stones, grass,
                      the stream), mountains,
                      trees, bushes (dabs of scrub scattered over any mountain), sky (distant
@@ -119,7 +122,9 @@ stands for it.
    edge with a dark rim, climbing upward from the ground. Behind it: ink density, washes,
    mist, moss dots.
 4. **Watercolour pass** (`ink/post.js`): the whole frame is repainted: wobbly edges,
-   pigment pooling, broken brush outlines, sketch lines, granulation, paper texture.
+   pigment pooling, broken brush outlines, sketch lines, granulation, paper texture. Each object
+   flags itself in the alpha channel (ground, inked, line-drawn, or detail that softens when you
+   sit at the lookout: a material's `soft` option).
 
 ## The colour stage (设色)
 

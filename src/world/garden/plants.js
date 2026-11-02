@@ -60,12 +60,12 @@ function addBamboo(scene, P, [t0, t1], rand, extraClumps = []) {
   const culmMat = inkMaterial({ tint: "foliage",
     channel: "mid", climb: 0.03, noiseScale: 0.35, noiseAmp: 0.3, near: 5, far: 50,
     density: 0.95, mist: 1.2, grain: 2.5, shade: 0.5, sil: 0.8, wash: 0.6, sway: 0.006,
-    washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk,
+    washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk, soft: true,
   });
   const leafMat = inkMaterial({ tint: "foliage",
     channel: "mid", climb: 0.03, noiseScale: 0.35, noiseAmp: 0.3, near: 5, far: 50,
     density: 1.15, mist: 1.2, grain: 3, shade: 0.8, sil: 0.3, wash: 0.5, sway: 0.006,
-    washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk, side: THREE.DoubleSide,
+    washLit: BAMBOO_LIT, washShade: BAMBOO_SHADE, color: greenInk, side: THREE.DoubleSide, soft: true,
   });
   // leaf: a slim blade, base at the origin, pointing along +y
   const leafGeo = new THREE.PlaneGeometry(0.07, 0.42, 1, 4).translate(0, 0.21, 0);
@@ -159,14 +159,14 @@ function addPlumTree(scene, origin, rand, { height = 3.4 } = {}) {
 
   scene.add(new THREE.Mesh(mergeGeometries(tubes), inkMaterial({
     tint: "wood", channel: "mid", climb: 0.05, noiseScale: 0.5, noiseAmp: 0.3, near: 4, far: 45,
-    density: 1.1, mist: 0.8, grain: 3, shade: 0.6, sil: 0.8,
+    density: 1.1, mist: 0.8, grain: 3, shade: 0.6, sil: 0.8, soft: true,
   })));
 
   // blossoms: little five-petal discs clustered at the branch tips
   const blossomMat = inkMaterial({ tint: "blossom",
     channel: "mid", bias: 0.05, climb: 0.05, noiseScale: 1.2, noiseAmp: 0.25, near: 4, far: 45,
     density: 0.85, mist: 0.01, grain: 4, shade: 0.3, sil: 0, color: BLOSSOM, sketch: false,
-    side: THREE.DoubleSide,
+    side: THREE.DoubleSide, soft: true,
   });
   const blossomGeo = new THREE.CircleGeometry(0.075, 5);
   const blossoms = new THREE.InstancedMesh(blossomGeo, blossomMat, tips.length * 3);

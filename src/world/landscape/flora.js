@@ -21,7 +21,8 @@ const AUTUMN = [
 
 export function build({ scene, P, places, rng }) {
   const rand = rng(37);
-  const ok = (x, z, near = 4) => !(P.distToPath(x, z) < near || P.blocked(x, z) || P.overCliff(x, z, 2) || P.slopeAt(x, z) > 0.5);
+  // (nowhere up the rise to the rim: not on its face, nor on the crest by the lookout)
+  const ok = (x, z, near = 4) => !(P.distToPath(x, z) < near || P.blocked(x, z) || P.overCliff(x, z, 2) || P.groundAt(x, z) > 0.4);
 
   // ---------- where the trees go ----------
   const trees = [];
@@ -89,14 +90,14 @@ function addTrees(scene, spots, rand, groundAt) {
 
   const woodMat = inkMaterial({
     channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
-    near: 5, far: 55, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood",
+    near: 5, far: 55, density: 1, mist: 1.2, grain: 3, shade: 0.55, sway: 0.004, tint: "wood", soft: true,
   });
   // needle pads: the same ink for every tree; only what colour they turn when colour
   // blooms differs (evergreen: green; the turning trees: their autumn shade)
   const padMat = (tint) => inkMaterial({
     channel: "mid", climb: 0.035, noiseScale: 0.35, noiseAmp: 0.3,
     near: 6, far: 60, density: 1.45, mist: 1.5, grain: 2.4, sil: 0.7, shade: 0.8,
-    ragged: 0.9, sway: 0.004, tint, wash: 0.5,
+    ragged: 0.9, sway: 0.004, tint, wash: 0.5, soft: true,
     washLit: new THREE.Color("#8fa77a"), washShade: new THREE.Color("#3f5a45"),
     sketch: false, // beyond the ink, trees are drawn as bare trunks; foliage blooms in with the ink
   });
