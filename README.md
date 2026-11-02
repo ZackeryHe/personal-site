@@ -75,7 +75,8 @@ src/
     drops.js         the ink: opening drop, footsteps, thrown-ahead ink, click-to-flick
     colour.js        the colour stage: blooms where you crane (and a little where you click),
                      flowers, butterflies
-    brush.js         the pointer: an ink-painted brush (loads with colour, spatters on click)
+    pointer.js       the pointer: a dot of ink (takes in colour, spreads into a ring over links,
+                     spatters on click)
     picker.js        clickable things in the world (the GitHub / LinkedIn / Email rocks)
     ui.js            panels + markers that bleed in like ink, progress dots, the hint
   ink/               the rendering "engine"
@@ -142,7 +143,7 @@ starts coming in, faint at first, where your gaze meets the ground; it fills in 
 ink field; every material samples it and shifts toward its tint (`TINTS` in
 `ink/material.js`: foliage, wood, rock, ground, water, mountain = 青绿 blue-green, blossom;
 pick one with a material's `tint` option). Flowers spring up from the middle outward,
-butterflies come, and the brush pointer's tip loads with the colour. The colour stays.
+butterflies come, and the pointer's dot of ink takes in the colour. The colour stays.
 
 As you approach one of your points, your head is nudged toward it: each marker's `nudge`
 in `places.js` (how far), `walk.nudgeEase` in `config.js` (how gently).

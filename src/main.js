@@ -9,7 +9,7 @@ import { createWalker } from "./app/walker.js";
 import { createDrops } from "./app/drops.js";
 import { createColour } from "./app/colour.js";
 import { createUI, createMarkers, createHint } from "./app/ui.js";
-import { createBrush } from "./app/brush.js";
+import { createPointer } from "./app/pointer.js";
 import { createPicker } from "./app/picker.js";
 import { createKeepsake } from "./app/keepsake.js";
 import { createLoader } from "./app/loader.js";
@@ -73,7 +73,7 @@ async function boot() {
   });
   const markers = createMarkers(world.markers); // your points, floating in the world
   const picker = createPicker({ camera, clickables: world.clickables }); // the GitHub / LinkedIn / Email rocks
-  const brush = createBrush({ canSplat: () => !picker.hovered }); // the pointer
+  const pointer = createPointer({ canSplat: () => !picker.hovered }); // a dot of ink
   const colour = createColour({ renderer, scene, walker, world }); // stand still + crane → colour blooms
   const hint = createHint(SITE.stillHint);
   const keepsake = createKeepsake({ renderer, scene, camera, walker }); // the views from the bench, to keep
@@ -115,7 +115,7 @@ async function boot() {
     ui.update(walker.progress, drops.introStart === null ? 0 : clamp01((now - drops.introStart - 1.2) / 1.4));
     markers.update(camera, drops.introStart === null ? 0 : clamp01((now - drops.introStart) / 2));
     picker.update();
-    brush.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
+    pointer.update(dt / warp, colour.charge, colour.colour, !!picker.hovered);
     hint.update(ready && walked > 6 && walker.still > 0.6 && colour.blooms === 0 && walker.seated < 0.1, dt);
     keepsake.update(dt / warp);
     post.render(scene, camera, worldOut); // (into the greeting's scroll at first: see below)

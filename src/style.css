@@ -97,29 +97,29 @@ body::after {
 }
 .marker-label.link:hover .en { text-decoration-color: var(--seal); }
 
-/* ---------- The brush pointer (src/app/brush.js) ---------- */
+/* ---------- The pointer: a dot of ink (src/app/pointer.js) ---------- */
 html, body, #scene, a, button { cursor: none; }
-#brush {
+#pointer {
   position: fixed;
   left: 0;
   top: 0;
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   pointer-events: none;
   z-index: 20;
   opacity: 0;
   transition: opacity 0.2s;
-  transform-origin: 6px 58px; /* the tip of the brush (scaled up 1.3× in brush.js) */
+  transform-origin: 24px 24px; /* its middle: the hotspot */
   will-change: transform;
 }
-#brush.on { opacity: 1; }
-#brush svg { overflow: visible; }
-#brush .load { transition: fill 0.3s; }
-/* drops of ink flicked off the brush when you click */
+#pointer.on { opacity: 1; }
+#pointer svg { overflow: visible; }
+#pointer .load { transition: fill 0.3s; }
+/* drops of ink thrown out when you click */
 #splats { position: fixed; inset: 0; pointer-events: none; z-index: 19; }
 #splats i { position: absolute; border-radius: 50% 45% 55% 50%; }
 @media (pointer: coarse) {
-  #brush, #splats { display: none; }
+  #pointer, #splats { display: none; }
   html, body, #scene, a, button { cursor: auto; }
 }
 
@@ -176,7 +176,7 @@ html, body, #scene, a, button { cursor: none; }
   border: 1px solid rgba(29, 33, 40, 0.45);
   border-radius: 50%;
   background: var(--paper);
-  cursor: none; /* the brush is the pointer */
+  cursor: none; /* the dot of ink is the pointer */
 }
 #progress .marker::after {
   content: attr(data-label);
@@ -291,7 +291,7 @@ body.is-greeting #stations,
 body.is-greeting #markers,
 body.is-greeting #progress,
 body.is-greeting #splats,
-body.is-greeting #brush { visibility: hidden; }
+body.is-greeting #pointer { visibility: hidden; }
 body.is-greeting::after { opacity: 0; }
 
 /* your name: the title card's own styles (.station, .hint), in white */

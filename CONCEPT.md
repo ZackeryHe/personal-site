@@ -36,7 +36,7 @@ The walk does the first two by itself. The third is a reward for pausing: stand 
 crane your head to the side, and colour blooms where you look: mineral blue-green on the
 mountains (the 青绿 "blue-green landscape" style), green on the leaves, a spring wash on the
 ground, teal water, flowers springing up toward you, butterflies arriving. It comes in
-faint and fills in while you keep looking, and the brush pointer's tip loads with the colour.
+faint and fills in while you keep looking, and the pointer's dot of ink takes in the colour.
 The places you lingered stay coloured, so by the end of a visit the scroll records where you
 stopped to look.
 
